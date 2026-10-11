@@ -2,7 +2,7 @@ import { errorInfo, LocalizedError, type ErrorInfo } from '../i18n/error.js';
 import { MailchimpClient, type Campaign } from '../mailchimp/client.js';
 import type { SupertextClient } from '../supertext/client.js';
 import { newJobId, type Account, type Job, type JobItem, type Store } from '../store/store.js';
-import { supertextCode } from './languages.js';
+import { supertextCode, supertextSource } from './languages.js';
 import { originalSegment } from './segments.js';
 import { translateCampaign } from './translate.js';
 
@@ -127,7 +127,7 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
         target,
         language,
         supertextTarget: supertextCode(language, account.languageCodes),
-        sourceLanguage: account.sourceLanguage,
+        sourceLanguage: supertextSource(account.sourceLanguage, account.languageCodes),
         politeness: account.tone,
         overwrite: job.overwrite,
         folderId: targetFolder,

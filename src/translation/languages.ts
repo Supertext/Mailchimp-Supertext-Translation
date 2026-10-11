@@ -3,7 +3,8 @@
 // Mailchimp stores each subscriber's language as a two-letter code ("de"),
 // detected from the browser or set in the audience; the language segment
 // condition takes the same code. Supertext needs a regional target code
-// ("de-CH", "fr-FR"), which each account can set per language.
+// ("de-CH", "fr-FR"), which each account can set per language; the source is
+// sent as the bare language ("en").
 
 /** Languages offered as targets: Mailchimp code → default Supertext code. */
 export const LANGUAGES: Record<string, string> = {
@@ -70,6 +71,14 @@ export function normalizeCode(code: string): string {
 export function supertextCode(language: string, overrides: Record<string, string>): string {
   const own = overrides[language]?.trim();
   return own ? normalizeCode(own) : (LANGUAGES[language] ?? language);
+}
+
+/**
+ * The source code sent to Supertext: the bare language of the Supertext code ("en-US" → "en",
+ * Mailchimp's "no" → "nb"). Empty when no source language is set (Supertext detects it).
+ */
+export function supertextSource(language: string, overrides: Record<string, string>): string {
+  return language ? supertextCode(language, overrides).split('-')[0] : '';
 }
 
 /** A plausible language code: "de", "de-CH", "zh-Hant", "es-419". */
