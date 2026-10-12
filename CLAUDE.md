@@ -43,7 +43,11 @@ Releases are published by `.github/workflows/release.yml`: never tag or create a
 
 ## Repo setup (always)
 
-`LICENSE` (MIT, as `package.json` declares), `SECURITY.md`, `.github/dependabot.yml` (npm and GitHub Actions, weekly, minor and patch grouped). On GitHub: About box, ruleset "Protect main", Wiki and Projects off, Dependabot alerts and private vulnerability reporting on, social preview image. Claude sessions can't change GitHub repo settings (HTTP 403): the repo is in Remy's setup script (`set-github-about`) and the social preview cards in the project docs.
+`LICENSE` (MIT, as `package.json` declares), `SECURITY.md`, `.github/dependabot.yml` (npm and GitHub Actions, weekly, minor and patch grouped), `.github/workflows/checks.yml` (actionlint + zizmor on every push and PR, dependency review on PRs) and `.github/workflows/links.yml` (lychee weekly and on docs changes; broken links open the issue "Broken links in the docs", exclusions in `.lycheeignore`). Third-party actions are pinned to commit SHAs; checkouts use `persist-credentials: false`; workflows default to `permissions: contents: read`. On GitHub: About box, ruleset "Protect main", Wiki and Projects off, Dependabot alerts, private vulnerability reporting, secret scanning with push protection and CodeQL default setup on, social preview image. Claude sessions can't change GitHub repo settings (HTTP 403): the repo is in Remy's setup script (`set-github-about`) and the social preview cards in the project docs.
+
+## Checks and alerts (always)
+
+Before starting work in this repo, look at its open findings and fix what the task touches or what is quick: code scanning alerts (`gh api 'repos/Supertext/Mailchimp-Supertext-Translation/code-scanning/alerts?state=open'`), secret scanning alerts (`…/secret-scanning/alerts?state=open`), open Dependabot PRs and the issue "Broken links in the docs". New workflows and workflow changes must pass actionlint and zizmor. See `docs/DEVELOPER.md` → *Code quality and security checks*.
 
 ## Demo accounts rule (always)
 

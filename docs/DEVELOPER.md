@@ -146,6 +146,14 @@ npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 
 `.github/workflows/ci.yml`: typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
 
+## Code quality and security checks
+
+- *Checks* workflow (`.github/workflows/checks.yml`): actionlint and zizmor lint the workflows on every push and PR; dependency review fails a PR that adds a package with a known vulnerability (moderate or worse).
+- *Links* workflow (`.github/workflows/links.yml`): lychee checks all Markdown links weekly and when docs change; broken links open or update the issue "Broken links in the docs". Links that can't work from CI (the local app and stand-ins, API and OAuth endpoints without credentials) are listed in `.lycheeignore`.
+- All workflows default to `permissions: contents: read` (the release job alone gets `contents: write`), check out with `persist-credentials: false`, and pin every action to a commit SHA with the version as a comment; Dependabot keeps the pins current.
+- GitHub settings (set by Remy's setup script, not in the repo): secret scanning with push protection (a push containing a known token format is rejected; findings under Security → Secret scanning) and CodeQL default setup (findings under Security → Code scanning and as PR comments).
+- Before starting work in this repo, look at its open findings: code scanning alerts, secret scanning alerts, Dependabot PRs and the "Broken links in the docs" issue.
+
 ## Hosting (Railway)
 
 The service **Mailchimp** in the Railway project *supertext-cms-demos* builds this repo's `Dockerfile` (context = repo root; set on the service, Railway ignores `railway.json`). Health check `/health`. Every push to `main` deploys. One instance only: the folder poller and jobs run in the web process.

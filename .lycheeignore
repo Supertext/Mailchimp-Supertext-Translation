@@ -1,0 +1,8 @@
+# Local app and stand-ins (docs and examples)
+^https?://127\.0\.0\.1
+^https?://localhost
+# APIs and OAuth endpoints answer 401/404/405 without credentials
+^https://api\.supertext\.com/
+^https://login\.mailchimp\.com/oauth2/
+^https://[a-z0-9]+\.admin\.mailchimp\.com/
+^https://[a-z0-9]+\.api\.mailchimp\.com/
