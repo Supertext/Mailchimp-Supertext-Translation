@@ -175,6 +175,12 @@ The demo is a Mailchimp account, not a container: Mailchimp hosts the campaigns,
 3. **Accounts** (the demo accounts rule, as far as Mailchimp allows): Supertext staff get access as Mailchimp users with the **Admin** role; for tests and screenshots invite a user with the **Manager** role (can create and edit campaigns). Mailchimp users are invited by hand and can't be created from Railway variables; passwords stay in Keeper, never in the repo or chat.
 4. Connect the demo account in the app, enter the API key under Settings or set `SUPERTEXT_API_KEY` on Railway, choose German, French and Italian.
 
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests: minor and patch updates grouped into one, GitHub Actions in another, each major update on its own. Merge one when CI is green and it doesn't change what the app supports.
+
+Some major versions are ignored on purpose: TypeScript (7.x is the native compiler; stay on 5.x until the type-checking and build tooling here is moved to it) and `@types/node` (the types must match the oldest Node version the app supports, Node 22, not the newest). Lift an ignore rule when the app moves to the new version.
+
 ## Releasing
 
 `package.json` holds the version (the release workflow's `VERSION_FILES`); the settings page reads it at runtime.
