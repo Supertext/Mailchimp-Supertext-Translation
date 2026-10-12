@@ -4,6 +4,8 @@ All notable changes to Supertext Translation for Mailchimp.
 
 ## Unreleased
 
+- Fixed: Norwegian as the campaign language is sent to Supertext as `nb` (the language of its Supertext code) instead of Mailchimp's `no`.
+
 ## 0.1.0 — 2026-10-09
 
 First version (in development: tested against a stand-in of the Mailchimp API, not yet on a real account).

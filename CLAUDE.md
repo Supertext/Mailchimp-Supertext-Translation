@@ -57,7 +57,7 @@ The user guide and installation guide include screenshots, taken by `npm run doc
 
 AI file translation API v1, same as the WordPress plugin: POST HTML file → poll status → GET translation → DELETE. Details in `docs/DEVELOPER.md`. Never commit API keys or the Mailchimp client secret; use environment variables or the app's settings (stored encrypted).
 
-Lessons from the live API, apply them here: header `Authorization: Supertext-Auth-Key <key>` (strip a pasted prefix), retry HTTP 429 (per-second rate limit), and keep a whole paragraph in one `data-st-id` element with formatting as inline tags (`src/mailchimp/email-html.ts`: one segment per text block).
+Lessons from the live API, apply them here: header `Authorization: Supertext-Auth-Key <key>` (strip a pasted prefix), retry HTTP 429 (per-second rate limit), keep a whole paragraph in one `data-st-id` element with formatting as inline tags (`src/mailchimp/email-html.ts`: one segment per text block), and send the source as a bare language (`en`) but the target as a regional code (`de-DE`, `en-US`): Supertext rejects bare targets (`INVALID_LANGUAGE_PAIR`), so bare Mailchimp languages get a regional default (see `docs/DEVELOPER.md` → *Language codes*).
 
 ## This repo
 

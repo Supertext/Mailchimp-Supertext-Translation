@@ -3,7 +3,7 @@ import { en } from '../src/i18n/en.js';
 import { errorInfo } from '../src/i18n/error.js';
 import { LOCALES, MESSAGES, localeFromRequest, resolveLocale, translator } from '../src/i18n/index.js';
 import { SupertextClient } from '../src/supertext/client.js';
-import { languageName, supertextCode } from '../src/translation/languages.js';
+import { languageName, supertextCode, supertextSource } from '../src/translation/languages.js';
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const urls = (text: string) => [...text.matchAll(/https:\/\/\S+?(?=[\s;)]|\.?$|\. )/g)].map((m) => m[0]).sort();
@@ -69,5 +69,15 @@ describe('languages', () => {
   it("sends the account's Supertext code, else a regional default", () => {
     expect(supertextCode('de', { de: 'de-ch' })).toBe('de-CH');
     expect(supertextCode('fr', {})).toBe('fr-FR');
+    expect(supertextCode('no', {})).toBe('nb-NO');
+    expect(supertextCode('de', { de: 'de_ch' })).toBe('de-CH');
+    expect(supertextCode('xx', {})).toBe('xx');
+  });
+
+  it('sends the source as the bare language', () => {
+    expect(supertextSource('en', {})).toBe('en');
+    expect(supertextSource('no', {})).toBe('nb');
+    expect(supertextSource('pt', { pt: 'pt-BR' })).toBe('pt');
+    expect(supertextSource('', {})).toBe('');
   });
 });

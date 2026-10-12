@@ -88,6 +88,16 @@ AI file translation API v1 at `https://api.supertext.com/v1/`, same as the WordP
 
 Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` validates the key (*Test connection*). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`.
 
+## Language codes
+
+Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. Mailchimp's subscriber languages are two-letter codes, so `src/translation/languages.ts` maps them:
+
+- **Target** (`supertextCode`): the account's Supertext code for the language (Settings → Languages, normalized: `de_ch` → `de-CH`), else the default from `LANGUAGES` (ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nl-NL, `no` → nb-NO, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN; the same table as the Shopify app).
+- **Source** (`supertextSource`): the bare language of the campaign language's Supertext code (`en`; Mailchimp's `no` → `nb`); empty lets Supertext detect it. The client also strips any region.
+- Supertext would accept `en` → `en-GB`, but a draft in the campaign's own Mailchimp language would go to the same subscribers, so the campaign language is left out of the targets.
+
+The stand-in (`tests/standin/supertext.ts`) rejects targets without region like the live API.
+
 ## Local development
 
 Requirements: Node.js 22.12+. No Mailchimp account needed for most work: the stand-ins answer like Mailchimp (OAuth and the API calls above) and Supertext for a sample account (`tests/standin/seed.ts`: a Swiss chocolate shop with a template campaign, an HTML campaign in a folder of its own with an interest segment, and a sent campaign; `samples.json` holds human translations of their texts into German, French and Italian).
@@ -164,6 +174,12 @@ The demo is a Mailchimp account, not a container: Mailchimp hosts the campaigns,
 2. Campaigns in English with the texts of `tests/standin/seed.ts`: one from a classic template, one in HTML.
 3. **Accounts** (the demo accounts rule, as far as Mailchimp allows): Supertext staff get access as Mailchimp users with the **Admin** role; for tests and screenshots invite a user with the **Manager** role (can create and edit campaigns). Mailchimp users are invited by hand and can't be created from Railway variables; passwords stay in Keeper, never in the repo or chat.
 4. Connect the demo account in the app, enter the API key under Settings or set `SUPERTEXT_API_KEY` on Railway, choose German, French and Italian.
+
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests: minor and patch updates grouped into one, GitHub Actions in another, each major update on its own. Merge one when CI is green and it doesn't change what the app supports.
+
+Some major versions are ignored on purpose: TypeScript (7.x is the native compiler; stay on 5.x until the type-checking and build tooling here is moved to it) and `@types/node` (the types must match the oldest Node version the app supports, Node 22, not the newest). Lift an ignore rule when the app moves to the new version.
 
 ## Releasing
 
