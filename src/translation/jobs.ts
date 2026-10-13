@@ -15,7 +15,7 @@ import { translateCampaign } from './translate.js';
 export interface JobDeps {
   store: Store;
   mailchimp: (account: Account) => MailchimpClient;
-  supertext: (account: Account) => Pick<SupertextClient, 'translateDocument'>;
+  supertext: (account: Account) => Pick<SupertextClient, 'translateSegments'>;
 }
 
 export interface JobRequest {

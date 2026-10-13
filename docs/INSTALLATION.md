@@ -50,7 +50,7 @@ Enter the API key, choose your languages and click **Save**. Then click **Test c
 | Test connection | – | Checks the key (entered or saved) with Supertext, without translating anything |
 | Language of your campaigns | English | The language you write your campaigns in. *Let Supertext detect it* works too, but then the app can't leave that language out of the targets. |
 | Translate into | none | The languages to translate into. Each one gets a draft per campaign and, with the folder trigger, its own Supertext folder. |
-| Supertext code | the language's default (e.g. `de-DE`, `fr-FR`, `en-US`) | The variant Supertext translates into. Supertext needs a region, for example `de-CH` for Swiss German or `fr-CH` for French as written in Switzerland. The campaign language is sent without region (`en`). |
+| Supertext code | the language's default (e.g. `de-DE`, `fr-FR`, `en-US`) | The variant Supertext translates into. Supertext needs a region, for example `de-CH` for Swiss German or `fr-CH` for French as written in Switzerland; a code without one (`fr`) gets the default region (`fr-FR`). The campaign language is sent without region (`en`). |
 | Start translations from: Mailchimp folders | On | The app creates the folders *Supertext → All languages* and one per language (*Supertext → German* …) and checks them every minute. Turning it off deletes the empty Supertext folders. |
 | Start translations from: The Supertext app | On | The *Translate* page offers the campaigns. At least one of the two stays on. |
 | Send the original only to subscribers without a translated language | On | After translating, the original's audience gets "language is not German, not French …" added, so nobody receives two versions. Off: the original keeps its audience. |

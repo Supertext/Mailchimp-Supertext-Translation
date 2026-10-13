@@ -21,8 +21,9 @@ src/
     folders.ts            the Supertext folders: create/rename/remove, poll, start jobs
     languages.ts          Mailchimp language codes, Supertext defaults, names
   supertext/
-    client.ts             Supertext AI file translation client (same as the other plugins)
-    html.ts               packs segments into one HTML document and back
+    client.ts             the app's layer over the Supertext SDK: one client per account, SDK error codes → app errors
+  vendor/supertext-sdk/   the Supertext SDK for TypeScript, copied (see *Supertext SDK*): protocol, HTML packing,
+                          language codes, 429 retries. Never edit by hand.
   store/
     store.ts              Store interface, in-memory store, AES-GCM for tokens and keys
     postgres.ts           PostgreSQL store (creates its database and tables)
@@ -31,6 +32,7 @@ src/
 public/                   app.js (selection, start, polling, test connection), app.css
 scripts/probe.ts          look at a real account (read-only; --write tries the writes on a throw-away copy)
 scripts/smoke.sh          the built app against the stand-ins (CI)
+scripts/update-supertext-sdk.sh   updates src/vendor/supertext-sdk; --check in CI
 tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-ins, sample account); docs/screenshots.ts
 ```
 
@@ -57,7 +59,7 @@ tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-
 2. **Checks** (`jobs.ts`): the campaign exists, isn't a draft the app made (`translations` table), is `regular` or `plaintext`, and has HTML (or plain text).
 3. **Segments** (`email-html.ts`, `translate.ts`): subject line and preview text as plain-text segments, then the content. A *text block* is the innermost element with letters and no block-level element inside (p, h1–h6, li, td, div …); its inner HTML is one segment, so a whole paragraph with its `<b>`, `<a href>` travels as one `data-st-id` (the shared rule). Loose text between blocks, `alt` and `title` attributes and the `<title>` are plain segments. `head`, `style`, `script`, `code`, Outlook conditional comments and anything with `translate="no"` or class `notranslate` are left alone. Elements whose attributes are translated get a temporary `data-st-a` marker so they are found again inside translated blocks; it's removed before writing.
 4. **Merge tags** (`*|FNAME|*`, `*|IF:…|*`, `*|UNSUB|*` …) in text become empty `<span data-mc="N"></span>` placeholders (numbered per segment) and are put back after translation. If a segment comes back with a placeholder missing or doubled, nothing is written for that language (`mergeTags`); in attributes (links) merge tags aren't touched anyway.
-5. **Supertext:** all segments of the language in one document (several above 900,000 characters); source = the account's campaign language, target = the language's Supertext code, `politeness` from the form of address. If fewer segments come back than were sent, nothing is written (`incomplete`).
+5. **Supertext** (through the SDK's `translateTexts`): all segments of the language as HTML fragments, packed into one document (several above 900,000 characters); source = the account's campaign language, target = the language's Supertext code, `politeness` from the form of address. If a segment doesn't come back, nothing is written (`incomplete`).
 6. **Draft:** the language's existing draft (status `save`) is kept, or updated if *Update existing drafts* / the folder trigger asks for it; a sent draft is left alone and a new one made. A new draft is a replica of the original. Then `PATCH` sets the title (`<title> · DE`), the translated subject and preview, the original's folder and the recipients (`segments.ts`): the original's list with a `Language is <code>` condition, combined with the original's own conditions when it uses `match: all`, no saved segment and the total stays within 5 conditions. Content: for `template`/`drag_and_drop` campaigns with a `template_id` the inner HTML of each `mc:edit` element is written as `template.sections`, so the draft stays editable in the classic builder; if Mailchimp refuses (400), the whole HTML is written (`notes: html`). Other campaigns get the HTML. If anything fails after the replica was made, the replica is deleted.
 7. **Original:** with *Send the original only to subscribers without a translated language*, a draft or paused original gets `Language is not <code>` for every language with a draft (its earlier language conditions replaced), within the same limits; otherwise the job reports that the audience was kept.
 8. **Errors:** authentication, limit, Mailchimp access and campaign problems stop the job; anything else (e.g. `INVALID_LANGUAGE_PAIR`) fails only that language. Jobs still running when the app restarts are marked *interrupted* on the next start.
@@ -79,21 +81,24 @@ English, German, French and Italian. Mailchimp doesn't pass a language to apps, 
 
 ## Supertext API protocol
 
-AI file translation API v1 at `https://api.supertext.com/v1/`, same as the WordPress plugin:
+AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML file, poll its status, download the translation, delete the file), handled entirely by the Supertext SDK: the `Supertext-Auth-Key` header (a pasted prefix is stripped), the multipart upload with a file part of type exactly `text/html`, HTTP 429 retries (`Retry-After`, else 1/2/4/8 s with jitter), polling every 2 s with a 3-minute timeout, the delete after every upload, the HTML packing (one `<div data-st-id="N">` per segment) and the language codes. See the SDK's [integration guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/integration-guide.md) and [API reference](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/api-reference.md).
 
-1. `POST translate/ai/file` (multipart): `file` (type exactly `text/html`), `target_lang`, `source_lang` (primary subtag only), optional `politeness` (`more`/`less`) → `{ file_id }`.
-2. `GET translate/ai/file/{id}/status` every 2 s until `done` (`error`, `limit_exceeded`, `deleted` stop; timeout 3 minutes).
-3. `GET translate/ai/file/{id}/translation` → the translated HTML.
-4. `DELETE translate/ai/file/{id}`, always.
+`src/supertext/client.ts` creates one SDK client per account with the key and the base URL (`SUPERTEXT_API_ENDPOINT` for stand-ins), sends `Mailchimp-Supertext-Translation/<version>` in the User-Agent, and turns the SDK's error codes into the app's (`authentication_failure` → `auth`, `quota_exceeded` → `limitExceeded`, `invalid_language_pair` → `languagePair`, `transport_error` → `unreachable`, `incomplete_response` → `incomplete` …), which the interface shows in its four languages. *Test connection* is the SDK's cost-free `validateApiKey()` (`GET features`). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`. The SDK never puts the key into error details.
 
-Header `Authorization: Supertext-Auth-Key <key>` (a pasted prefix is stripped). HTTP 429 is retried up to 4 times (`Retry-After`, else 1/2/4/8 s with jitter). `GET features` validates the key (*Test connection*). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`.
+## Supertext SDK
+
+The app uses the [Supertext SDK for TypeScript](https://github.com/Supertext/Supertext-API-SDK-and-Guide/tree/main/sdk/typescript) for everything that talks to Supertext. The SDK isn't on npm yet, so `src/vendor/supertext-sdk/` holds a copy of its `sdk/typescript/src` (unchanged, compiled with the app); `src/vendor/supertext-sdk/VERSION` records the SDK commit.
+
+- **Never edit `src/vendor/supertext-sdk/` by hand.** Fix the SDK repository (all five SDKs, see its `CLAUDE.md`), then update the copy: `scripts/update-supertext-sdk.sh <tag-or-commit>` (default `main`), run the tests and commit the copy together with any app changes.
+- CI checks that the copy matches the recorded commit (`scripts/update-supertext-sdk.sh --check`).
+- Once the SDK is on npm: `npm install supertext-sdk`, change the imports from `../vendor/supertext-sdk/index.js` to `supertext-sdk` (in `src/supertext/client.ts` and `src/translation/languages.ts`), delete the folder and the script.
 
 ## Language codes
 
 Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. Mailchimp's subscriber languages are two-letter codes, so `src/translation/languages.ts` maps them:
 
-- **Target** (`supertextCode`): the account's Supertext code for the language (Settings → Languages, normalized: `de_ch` → `de-CH`), else the default from `LANGUAGES` (ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nl-NL, `no` → nb-NO, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN; the same table as the Shopify app).
-- **Source** (`supertextSource`): the bare language of the campaign language's Supertext code (`en`; Mailchimp's `no` → `nb`); empty lets Supertext detect it. The client also strips any region.
+- **Target** (`supertextCode`): the account's Supertext code for the language (Settings → Languages, normalized and validated with the SDK's `LanguageCodes`: `de_ch` → `de-CH`), else the default from `LANGUAGES` (ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nl-NL, `no` → nb-NO, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN; the same table as the Shopify app).
+- **Source** (`supertextSource`): the bare language of the campaign language's Supertext code (`en`; Mailchimp's `no` → `nb`); empty lets Supertext detect it. The SDK also strips any region from the source and adds the default region to a bare target (an override `fr` is sent as `fr-FR`).
 - Supertext would accept `en` → `en-GB`, but a draft in the campaign's own Mailchimp language would go to the same subscribers, so the campaign language is left out of the targets.
 
 The stand-in (`tests/standin/supertext.ts`) rejects targets without region like the live API.
@@ -126,11 +131,14 @@ An API key (Mailchimp → Profile → Extras → API keys) works like an OAuth t
 ## Tests
 
 ```bash
-npm test             # Vitest: email HTML and merge tags, segments, sessions, Supertext client, HTML packing, i18n, full flow
+npm test             # Vitest: email HTML and merge tags, segments, sessions, the app's SDK layer, i18n, full flow
 npm run typecheck
 npm run build
 bash scripts/smoke.sh   # after build: the built app against the stand-ins
+scripts/update-supertext-sdk.sh --check   # src/vendor/supertext-sdk is the recorded SDK commit
 ```
+
+The protocol itself (multipart, retries, polling, packing, language codes, error mapping) is tested in the SDK repository against its shared test vectors.
 
 `tests/flow.test.ts` runs the whole app (`createApp`) against the stand-ins with an in-memory store: OAuth, settings and folders, translating from the app (drafts, segments, merge tags, template sections and the HTML fallback, kept and updated drafts, errors) and from folders (moved back, sent campaigns), disconnecting.
 
@@ -144,7 +152,7 @@ npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 
 ## CI
 
-`.github/workflows/ci.yml`: typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
+`.github/workflows/ci.yml`: the SDK copy check, typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
 
 ## Code quality and security checks
 

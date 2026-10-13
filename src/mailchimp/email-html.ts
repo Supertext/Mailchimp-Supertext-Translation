@@ -1,6 +1,5 @@
 import { HTMLElement, parse, TextNode, type Node } from 'node-html-parser';
 import { LocalizedError } from '../i18n/error.js';
-import { escapeHtml } from '../supertext/html.js';
 
 /**
  * Finds the texts in a campaign's HTML and puts the translations back.
@@ -18,6 +17,14 @@ import { escapeHtml } from '../supertext/html.js';
  * `<span data-mc="N"></span>` placeholders and are put back afterwards (in
  * attributes Supertext doesn't translate anything anyway).
  */
+
+export const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const BLOCK = new Set([
   'address', 'article', 'aside', 'blockquote', 'body', 'center', 'dd', 'details', 'dialog', 'div', 'dl', 'dt',

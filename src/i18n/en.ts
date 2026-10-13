@@ -163,7 +163,7 @@ export const en = {
     'Supertext doesn\'t translate from "{source}" into "{target}". Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).',
   'error.languagePairUnknown':
     "Supertext doesn't translate into this language. Set the Supertext code for this language under Settings → Languages, with a region (e.g. de-CH, fr-FR, en-US).",
-  'error.incomplete': 'Supertext returned {received} of {sent} texts; nothing was saved for this language.',
+  'error.incomplete': 'Supertext returned an incomplete translation; nothing was saved for this language.',
   'error.mergeTags': 'Supertext returned {received} of {sent} merge tags; nothing was saved for this language.',
   'error.notConnected': 'Mailchimp is not connected. Connect it again.',
   'error.notConfigured':

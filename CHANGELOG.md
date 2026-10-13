@@ -4,6 +4,8 @@ All notable changes to Supertext Translation for Mailchimp.
 
 ## Unreleased
 
+- Changed: Supertext is reached through the Supertext SDK for TypeScript (bundled in `src/vendor/supertext-sdk/` until it is on npm) instead of the app's own client. Same protocol; the app now identifies itself in the User-Agent, and the API key is masked wherever Supertext's answer echoes it.
+- Changed: a Supertext code without a region in the language settings (e.g. `fr`) is sent with the default region (`fr-FR`) instead of being rejected by Supertext.
 - Fixed: Norwegian as the campaign language is sent to Supertext as `nb` (the language of its Supertext code) instead of Mailchimp's `no`.
 
 ## 0.1.0 — 2026-10-09

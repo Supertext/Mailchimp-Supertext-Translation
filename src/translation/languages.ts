@@ -6,6 +6,8 @@
 // ("de-CH", "fr-FR"), which each account can set per language; the source is
 // sent as the bare language ("en").
 
+import { LanguageCodes } from '../vendor/supertext-sdk/index.js';
+
 /** Languages offered as targets: Mailchimp code → default Supertext code. */
 export const LANGUAGES: Record<string, string> = {
   ar: 'ar-SA',
@@ -58,14 +60,8 @@ export function languageName(code: string, uiLocale: string): string {
   return code;
 }
 
-/** "pt-br" → "pt-BR"; "de" → "de". */
-export function normalizeCode(code: string): string {
-  const [language, ...rest] = code.trim().replace(/_/g, '-').split('-');
-  if (!language) return '';
-  const region = rest.join('-');
-  if (!region) return language.toLowerCase();
-  return `${language.toLowerCase()}-${region.length === 2 ? region.toUpperCase() : region}`;
-}
+/** "pt_br" → "pt-BR"; "de" → "de" (the SDK's normalization). */
+export const normalizeCode = (code: string): string => LanguageCodes.normalize(code);
 
 /** The code sent to Supertext for a Mailchimp language: the account's own setting, else the default. */
 export function supertextCode(language: string, overrides: Record<string, string>): string {
@@ -81,6 +77,5 @@ export function supertextSource(language: string, overrides: Record<string, stri
   return language ? supertextCode(language, overrides).split('-')[0] : '';
 }
 
-/** A plausible language code: "de", "de-CH", "zh-Hant", "es-419". */
-export const isValidCode = (code: string): boolean =>
-  /^[a-z]{2,3}(-([A-Z]{2}|[A-Za-z]{4}|\d{3}))?$/.test(normalizeCode(code));
+/** A plausible language code: "de", "de-CH", "zh-Hant", "es-419" (the SDK's check). */
+export const isValidCode = (code: string): boolean => LanguageCodes.isValid(code);

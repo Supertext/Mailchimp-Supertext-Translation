@@ -52,9 +52,15 @@ describe('translator', () => {
   });
 
   it("translates errors and keeps the service's own detail", async () => {
-    const client = new SupertextClient({ apiKey: 'bad', fetch: (async () => new Response('bad key', { status: 401 })) as unknown as typeof fetch });
+    const client = new SupertextClient({
+      apiKey: 'Supertext-Auth-Key wrong-key',
+      fetch: (async () => new Response('{"detail":"bad key: wrong-key"}', { status: 401 })) as unknown as typeof fetch,
+    });
     const info = errorInfo(await client.validate().catch((error) => error));
-    expect(translator('de').error(info)).toMatch(/^Authentifizierung fehlgeschlagen\..*\(bad key\)$/);
+    expect(info.code).toBe('auth');
+    // The SDK masks the key wherever the API echoes it.
+    expect(translator('de').error(info)).toMatch(/^Authentifizierung fehlgeschlagen\..*\(\{"detail":"bad key: \*\*\*"\}\)$/);
+    expect(translator('de').error(info)).not.toContain('wrong-key');
     expect(translator('it').error({ message: 'Something else' })).toBe('Something else');
   });
 });

@@ -1,8 +1,6 @@
-import { LocalizedError } from '../i18n/error.js';
 import { MailchimpError, type Campaign, type CampaignContent, type MailchimpClient } from '../mailchimp/client.js';
 import { EmailDocument, plainSegment, segmentResult, type EmailSegment } from '../mailchimp/email-html.js';
-import { MAX_DOCUMENT_CHARACTERS, type Politeness, type SupertextClient } from '../supertext/client.js';
-import { buildDocument, parseDocument } from '../supertext/html.js';
+import type { Politeness, SupertextClient } from '../supertext/client.js';
 import type { JobItem } from '../store/store.js';
 import { translationSegment } from './segments.js';
 
@@ -15,7 +13,7 @@ import { translationSegment } from './segments.js';
 
 export interface TranslateArgs {
   mailchimp: Pick<MailchimpClient, 'replicate' | 'updateCampaign' | 'setContent' | 'deleteCampaign'>;
-  supertext: Pick<SupertextClient, 'translateDocument'>;
+  supertext: Pick<SupertextClient, 'translateSegments'>;
   source: Campaign;
   content: CampaignContent;
   /** The language's existing draft (status "save"), if there is one. */
@@ -105,42 +103,11 @@ export async function translateCampaign(args: TranslateArgs): Promise<TranslateR
   return { state: target ? 'updated' : 'created', targetId: draft.id, webId: draft.web_id, notes };
 }
 
-/** All segments in as few Supertext documents as the size limit allows; every segment must come back. */
+/** All segments of one language through the SDK (packed into as few documents as the size limit allows). */
 async function translateSegments(args: TranslateArgs, segments: EmailSegment[]): Promise<Map<number, string>> {
-  const result = new Map<number, string>();
-  let batch: number[] = [];
-  let size = 0;
-  const flush = async () => {
-    if (batch.length === 0) return;
-    const parts = batch.map((i) => ({ text: segments[i].html, html: true }));
-    const translated = parseDocument(
-      await args.supertext.translateDocument(buildDocument(parts), {
-        targetLanguage: args.supertextTarget,
-        sourceLanguage: args.sourceLanguage,
-        politeness: args.politeness,
-      }),
-      parts,
-    );
-    batch.forEach((segmentIndex, i) => {
-      const value = translated.get(i);
-      if (value !== undefined) result.set(segmentIndex, value);
-    });
-    batch = [];
-    size = 0;
-  };
-  for (let i = 0; i < segments.length; i++) {
-    const length = segments[i].html.length + 40;
-    if (size + length > MAX_DOCUMENT_CHARACTERS) await flush();
-    batch.push(i);
-    size += length;
-  }
-  await flush();
-  if (result.size !== segments.length) {
-    throw new LocalizedError(
-      `Supertext returned ${result.size} of ${segments.length} texts; nothing was saved for this language.`,
-      'incomplete',
-      { received: result.size, sent: segments.length },
-    );
-  }
-  return result;
+  const translated = await args.supertext.translateSegments(
+    segments.map((segment) => segment.html),
+    { targetLanguage: args.supertextTarget, sourceLanguage: args.sourceLanguage, politeness: args.politeness },
+  );
+  return new Map(translated.map((html, i) => [i, html]));
 }

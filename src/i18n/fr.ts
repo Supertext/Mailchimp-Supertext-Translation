@@ -162,7 +162,7 @@ export const fr: Messages = {
   'error.languagePairUnknown':
     'Supertext ne traduit pas dans cette langue. Définissez le code Supertext de cette langue sous Paramètres → Langues, avec une région (p. ex. de-CH, fr-FR, en-US).',
   'error.incomplete':
-    'Supertext a renvoyé {received} textes sur {sent} ; rien n’a été enregistré pour cette langue.',
+    'Supertext a renvoyé une traduction incomplète ; rien n’a été enregistré pour cette langue.',
   'error.mergeTags':
     'Supertext a renvoyé {received} balises de fusion sur {sent} ; rien n’a été enregistré pour cette langue.',
   'error.notConnected': 'Mailchimp n’est pas connecté. Connectez-le à nouveau.',

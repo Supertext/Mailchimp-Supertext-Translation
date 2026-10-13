@@ -238,7 +238,7 @@ describe('translating from the app', () => {
   it('skips a language Supertext refuses and goes on with the others', async () => {
     const env = setup();
     await env.connect();
-    await env.saveSettings([...STANDARD_SETTINGS.filter(([name]) => name !== 'code:fr'), ['code:fr', 'fr']]);
+    await env.saveSettings([...STANDARD_SETTINGS.filter(([name]) => name !== 'code:fr'), ['code:fr', 'fr-Latn']]);
     const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de', 'fr'] })).json();
     await env.settle();
     const job = (await env.store.getJob(ACCOUNT_ID, id))!;
