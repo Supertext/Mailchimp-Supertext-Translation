@@ -65,8 +65,8 @@ Lessons from the live API, apply them here: header `Authorization: Supertext-Aut
 
 ## This repo
 
-- Before committing: `scripts/update-supertext-sdk.sh --check`, `npm run typecheck`, `npm test`, `npm run build`, `bash scripts/smoke.sh`.
-- Supertext is reached through the Supertext SDK for TypeScript, copied into `src/vendor/supertext-sdk/` (the SDK isn't on npm yet). Never edit that folder: change the SDK repo (`Supertext/Supertext-API-SDK-and-Guide`), then `scripts/update-supertext-sdk.sh <commit>`; CI runs `--check`. See `docs/DEVELOPER.md` → *Supertext SDK*.
+- Before committing: `npm run typecheck`, `npm test`, `npm run build`, `bash scripts/smoke.sh`.
+- All Supertext API calls go through the Supertext SDK (`supertext-sdk`), a dependency from `vendor/supertext-sdk` (built copy, `COMMIT` = SDK commit) wrapped by `src/supertext/client.ts`. Never edit `vendor/`: fix the SDK in `Supertext/Supertext-API-SDK-and-Guide` and run `scripts/vendor-sdk.sh [ref]`. See `docs/DEVELOPER.md` → *Supertext SDK*.
 - Merge tags (`*|…|*`) must survive every translation: they travel as `<span data-mc="N">` placeholders and a segment that loses one is refused. Keep that check.
 - Changes to Mailchimp calls go through `src/mailchimp/client.ts` and the stand-in (`tests/standin/mailchimp.ts`) together. Check real Mailchimp behaviour with `npm run mailchimp:probe` before relying on it (`--write` only on a demo account).
 - New settings go in `src/store/store.ts` (`Account`, stored as JSON), `src/views/settings.tsx`, the form handler in `src/app.ts` **and** the settings table in `docs/INSTALLATION.md`.

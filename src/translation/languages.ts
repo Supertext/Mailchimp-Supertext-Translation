@@ -6,7 +6,7 @@
 // ("de-CH", "fr-FR"), which each account can set per language; the source is
 // sent as the bare language ("en").
 
-import { LanguageCodes } from '../vendor/supertext-sdk/index.js';
+import { LanguageCodes } from 'supertext-sdk';
 
 /** Languages offered as targets: Mailchimp code → default Supertext code. */
 export const LANGUAGES: Record<string, string> = {

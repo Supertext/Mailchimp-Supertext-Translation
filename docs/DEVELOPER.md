@@ -22,8 +22,6 @@ src/
     languages.ts          Mailchimp language codes, Supertext defaults, names
   supertext/
     client.ts             the app's layer over the Supertext SDK: one client per account, SDK error codes → app errors
-  vendor/supertext-sdk/   the Supertext SDK for TypeScript, copied (see *Supertext SDK*): protocol, HTML packing,
-                          language codes, 429 retries. Never edit by hand.
   store/
     store.ts              Store interface, in-memory store, AES-GCM for tokens and keys
     postgres.ts           PostgreSQL store (creates its database and tables)
@@ -32,7 +30,8 @@ src/
 public/                   app.js (selection, start, polling, test connection), app.css
 scripts/probe.ts          look at a real account (read-only; --write tries the writes on a throw-away copy)
 scripts/smoke.sh          the built app against the stand-ins (CI)
-scripts/update-supertext-sdk.sh   updates src/vendor/supertext-sdk; --check in CI
+scripts/vendor-sdk.sh     updates vendor/supertext-sdk
+vendor/supertext-sdk/     the Supertext SDK (TypeScript, built), the app's `supertext-sdk` dependency; see *Supertext SDK*
 tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-ins, sample account); docs/screenshots.ts
 ```
 
@@ -87,11 +86,15 @@ AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML fi
 
 ## Supertext SDK
 
-The app uses the [Supertext SDK for TypeScript](https://github.com/Supertext/Supertext-API-SDK-and-Guide/tree/main/sdk/typescript) for everything that talks to Supertext. The SDK isn't on npm yet, so `src/vendor/supertext-sdk/` holds a copy of its `sdk/typescript/src` (unchanged, compiled with the app); `src/vendor/supertext-sdk/VERSION` records the SDK commit.
+All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json` and `COMMIT` (the SDK commit). The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
 
-- **Never edit `src/vendor/supertext-sdk/` by hand.** Fix the SDK repository (all five SDKs, see its `CLAUDE.md`), then update the copy: `scripts/update-supertext-sdk.sh <tag-or-commit>` (default `main`), run the tests and commit the copy together with any app changes.
-- CI checks that the copy matches the recorded commit (`scripts/update-supertext-sdk.sh --check`).
-- Once the SDK is on npm: `npm install supertext-sdk`, change the imports from `../vendor/supertext-sdk/index.js` to `supertext-sdk` (in `src/supertext/client.ts` and `src/translation/languages.ts`), delete the folder and the script.
+```bash
+scripts/vendor-sdk.sh                  # latest main of the SDK repository
+scripts/vendor-sdk.sh <commit-or-tag>
+SDK_DIR=../Supertext-API-SDK-and-Guide scripts/vendor-sdk.sh   # a local clone
+```
+
+then `npm install`, run the tests and commit `vendor/`, `package-lock.json` and any app changes with a CHANGELOG entry. Same layout and script as the other npm plugins (e.g. Directus). Once the SDK is on npm, the dependency becomes `"supertext-sdk": "^x.y.z"` and `vendor/` and the script go; the imports stay.
 
 ## Language codes
 
@@ -135,7 +138,6 @@ npm test             # Vitest: email HTML and merge tags, segments, sessions, th
 npm run typecheck
 npm run build
 bash scripts/smoke.sh   # after build: the built app against the stand-ins
-scripts/update-supertext-sdk.sh --check   # src/vendor/supertext-sdk is the recorded SDK commit
 ```
 
 The protocol itself (multipart, retries, polling, packing, language codes, error mapping) is tested in the SDK repository against its shared test vectors.
@@ -152,7 +154,7 @@ npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 
 ## CI
 
-`.github/workflows/ci.yml`: the SDK copy check, typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
+`.github/workflows/ci.yml`: typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
 
 ## Code quality and security checks
 

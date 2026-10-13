@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fromSdk, SupertextClient } from '../src/supertext/client.js';
-import { SupertextError as SdkError } from '../src/vendor/supertext-sdk/index.js';
+import { SupertextError as SdkError } from 'supertext-sdk';
 
 // The protocol itself is tested in the SDK repository; here only the app's layer.
 describe('the app layer over the Supertext SDK', () => {

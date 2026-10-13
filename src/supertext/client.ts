@@ -1,15 +1,15 @@
 /**
- * The app's layer over the Supertext SDK (src/vendor/supertext-sdk, see
+ * The app's layer over the Supertext SDK (the `supertext-sdk` dependency from vendor/, see
  * docs/DEVELOPER.md → Supertext SDK): one client per account, and the SDK's
  * error codes turned into the app's LocalizedErrors (`error.<code>` in the
  * interface languages).
  */
 
 import { LocalizedError, type MessageParams } from '../i18n/error.js';
-import { SupertextClient as SdkClient, SupertextError as SdkError, type FetchLike } from '../vendor/supertext-sdk/index.js';
+import { SupertextClient as SdkClient, SupertextError as SdkError, type FetchLike } from 'supertext-sdk';
 import { VERSION } from '../version.js';
 
-export { retryDelayMs } from '../vendor/supertext-sdk/index.js';
+export { retryDelayMs } from 'supertext-sdk';
 
 /** `more`: formal address (Sie, vous, Lei). `less`: informal (du, tu). `default`: Supertext decides. */
 export type Politeness = 'default' | 'more' | 'less';
