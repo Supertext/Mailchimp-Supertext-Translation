@@ -47,4 +47,18 @@ describe('the app layer over the Supertext SDK', () => {
     expect(seen[0].target).toBe('de-DE');
     expect(seen[0].source).toBe('en');
   });
+
+  it('reports an unknown target language (HTTP 404 INVALID_LANGUAGE_PAIR) as a language pair', async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ error_code: 'INVALID_LANGUAGE_PAIR', source_lang: 'en', target_lang: 'xx-XX' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      })) as unknown as typeof fetch;
+    const client = new SupertextClient({ apiKey: 'k', endpoint: 'https://api.test/v1', fetch: fetchFn });
+    const error = (await client
+      .translateSegments(['Hello'], { targetLanguage: 'xx-XX', sourceLanguage: 'en' })
+      .catch((e: unknown) => e)) as { code: string; params: Record<string, string> };
+    expect(error.code).toBe('languagePair');
+    expect(error.params).toEqual({ source: 'en', target: 'xx-XX' });
+  });
 });

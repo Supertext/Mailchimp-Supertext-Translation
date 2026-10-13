@@ -86,12 +86,12 @@ AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML fi
 
 ## Supertext SDK
 
-All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json` and `COMMIT` (the SDK commit). The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
+All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json`, `LICENSE`, `COMMIT` (the SDK commit), `VERSION` and a `README.md`. The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
 
 ```bash
 scripts/vendor-sdk.sh                  # latest main of the SDK repository
-scripts/vendor-sdk.sh <commit-or-tag>
-SDK_DIR=../Supertext-API-SDK-and-Guide scripts/vendor-sdk.sh   # a local clone
+scripts/vendor-sdk.sh <commit-or-branch>
+SDK_DIR=/path/to/clone scripts/vendor-sdk.sh   # a local clone as it is
 ```
 
 then `npm install`, run the tests and commit `vendor/`, `package-lock.json` and any app changes with a CHANGELOG entry. Same layout and script as the other npm plugins (e.g. Directus). Once the SDK is on npm, the dependency becomes `"supertext-sdk": "^x.y.z"` and `vendor/` and the script go; the imports stay.
