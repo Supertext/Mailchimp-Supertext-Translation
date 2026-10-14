@@ -43,6 +43,8 @@ async function main() {
       MAILCHIMP_CLIENT_SECRET: 'screenshots-secret',
       MAILCHIMP_LOGIN_BASE: mailchimpUrl,
       SUPERTEXT_API_ENDPOINT: `${supertextUrl}/v1/`,
+      // Version reports go to the stand-in, never to the live Commando Center.
+      SUPERTEXT_REPORT_URL: `${supertextUrl}/report`,
       FOLDER_POLL_SECONDS: '0',
     }),
     store: new MemoryStore(),

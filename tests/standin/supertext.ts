@@ -1,10 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { Languages } from 'supertext-sdk/v1';
 
 /**
  * A stand-in for the Supertext AI file translation API v1. Returns the human
  * translations in samples.json for the sample account's texts (keyed by the
  * target's primary language subtag), and "[<target>] text" for anything else.
+ * Accepts only the target codes Supertext lists (the SDK's Languages), like the
+ * live API. Also answers the Commando Center's `POST /report` (recorded in
+ * `reports`), so local runs never report to the live center.
  */
 
 const norm = (value: string) => value.replace(/\s+/g, ' ').replace(/> </g, '><').trim();
@@ -27,16 +31,23 @@ export interface SupertextStandin {
   handle(request: Request): Promise<Response>;
   /** Documents received: target language and HTML. */
   documents: { target: string; source?: string; politeness?: string; html: string }[];
+  /** Version reports received on POST /report (the Commando Center's protocol). */
+  reports: Record<string, unknown>[];
 }
 
 export function createSupertextStandin(): SupertextStandin {
   const files = new Map<string, { html: string; target: string }>();
   const state: SupertextStandin = {
     documents: [],
+    reports: [],
     handle: async (request) => {
       const path = new URL(request.url).pathname.replace(/^\/v1/, '');
       const json = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (request.method === 'POST' && /\/report$/.test(path)) {
+        state.reports.push((await request.json()) as Record<string, unknown>);
+        return json({ ok: true }, 202);
+      }
       if (!/^Supertext-Auth-Key \S+$/.test(request.headers.get('authorization') ?? '')) {
         return json({ detail: 'missing key' }, 401);
       }
@@ -49,8 +60,12 @@ export function createSupertextStandin(): SupertextStandin {
         const file = form.get('file') as File | null;
         if (!file || file.type !== 'text/html') return json({ detail: 'FILETYPE_NOT_ALLOWED' }, 415);
         const target = String(form.get('target_lang'));
-        if (!/^[a-z]{2}-[A-Z]{2}$/.test(target)) {
-          return json({ detail: 'INVALID_LANGUAGE_PAIR', source_lang: form.get('source_lang'), target_lang: target }, 400);
+        if (!Languages.isSupportedTarget(target)) {
+          return json({ error_code: 'INVALID_LANGUAGE_PAIR', source_lang: form.get('source_lang'), target_lang: target }, 404);
+        }
+        const politeness = form.get('politeness');
+        if (politeness && !Languages.supportsPoliteness(target)) {
+          return json({ error_code: 'FEATURE_ERROR', detail: 'politeness' }, 400);
         }
         const id = randomBytes(6).toString('hex');
         const html = await file.text();

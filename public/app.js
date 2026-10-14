@@ -112,7 +112,9 @@
       api('POST', '/api/test', { apiKey: keyInput ? keyInput.value : '' }).then(function (result) {
         test.disabled = false;
         test.textContent = label;
-        resultText.textContent = result.json.message || '';
+        // The server renders the key check message (escaped, with its links); else plain text.
+        if (result.json.html) resultText.innerHTML = result.json.html;
+        else resultText.textContent = result.json.message || '';
         resultText.className = result.json.ok ? 'ok' : 'failed';
       });
     });

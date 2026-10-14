@@ -43,6 +43,7 @@ export const it: Messages = {
   'translate.previousPage': 'Pagina precedente',
   'translate.nextPage': 'Pagina successiva',
   'translate.step2': '2. Scelga le lingue',
+  'translate.notMapped': "Ancora nessun codice Supertext (vedi Impostazioni)",
   'translate.from': 'Traduzione da: {language}.',
   'translate.fromAuto': 'Supertext riconosce la lingua della campagna.',
   'translate.overwrite': 'Aggiorna le bozze esistenti',
@@ -88,7 +89,7 @@ export const it: Messages = {
 
   'settings.heading': 'Impostazioni Supertext',
   'settings.saved': 'Impostazioni salvate.',
-  'settings.invalidCodes': 'Salvato, tranne questi codici di lingua, che non sono codici validi come de-CH: {codes}.',
+  'settings.invalidCodes': "Salvato, tranne questi codici, che non sono codici Supertext (ne scelga uno dall’elenco, per esempio de-CH o es): {codes}.",
   'settings.foldersFailed':
     'Salvato, ma non è stato possibile aggiornare le cartelle Supertext in Mailchimp: {reason}',
   'settings.apiKey.heading': 'Chiave API Supertext',
@@ -99,16 +100,14 @@ export const it: Messages = {
   'settings.apiKey.remove': 'Rimuovi la chiave salvata',
   'settings.test': 'Verifica connessione',
   'settings.testing': 'Verifica in corso…',
-  'settings.testOk': 'Connesso. La chiave API funziona.',
   'settings.languages.heading': 'Lingue',
   'settings.languages.text':
     'Mailchimp conosce la lingua di ogni iscritto (rilevata dal browser o impostata nel Suo pubblico). Ogni traduzione viene inviata agli iscritti di quella lingua.',
   'settings.languages.source': 'Lingua delle Sue campagne',
   'settings.languages.auto': 'Lasciare che Supertext la riconosca',
   'settings.languages.targets': 'Traduci in',
-  'settings.languages.code': 'Codice Supertext',
-  'settings.languages.codeHint':
-    'Supertext ha bisogno di una regione, per esempio de-CH per il tedesco svizzero o fr-FR per il francese di Francia.',
+  'settings.languages.code': "Codice Supertext",
+  'settings.languages.codeHint': "Inserisca per ogni lingua di destinazione il codice usato da Supertext, per esempio de-CH per il tedesco svizzero, en-US per l’inglese americano o zh-Hans per il cinese semplificato. Una lingua il cui codice Mailchimp è già un codice Supertext (es, nl) non ne ha bisogno. Una lingua senza codice non viene tradotta.",
   'settings.start.heading': 'Avvia le traduzioni da',
   'settings.start.folders': 'Le cartelle di Mailchimp',
   'settings.start.foldersHint':
@@ -127,6 +126,17 @@ export const it: Messages = {
   'settings.style.default': 'Lasciare decidere a Supertext',
   'settings.style.more': 'Formale (p. es. «Lei»)',
   'settings.style.less': 'Informale (p. es. «tu»)',
+  'settings.languages.sent': "Inviato a Supertext",
+  'settings.languages.notMapped': "Non impostato",
+  'settings.languages.unmapped': "Queste lingue non hanno ancora un codice Supertext e vengono tradotte solo dopo che ne avrà inserito uno in Lingue: {languages}.",
+  'settings.languages.sourceUnsupported': "Supertext non conosce {language} come lingua delle Sue campagne. Inserisca il suo codice Supertext in Lingue (per esempio en-US per l’inglese) oppure lasci che Supertext riconosca la lingua.",
+  'settings.keyCheck.label': "Verifica della chiave API:",
+  'settings.keyCheck.at': "(ultima verifica {time} UTC)",
+  'settings.style.notOffered': "Supertext non offre una forma di cortesia formale o informale per {languages}; queste lingue vengono tradotte con l’impostazione predefinita di Supertext.",
+  'settings.reports.heading': "Assistenza Supertext",
+  'settings.reports.label': "Inviare le informazioni sulla versione a Supertext",
+  'settings.reports.help': "Invia a Supertext l’ID del Suo account Mailchimp e le versioni di questa app e dell’ambiente di esecuzione quando salva queste impostazioni e dopo un aggiornamento. In questo modo l’assistenza Supertext vede quale versione utilizza. Non vengono trasmessi contenuti, chiavi API né dati personali.",
+  'settings.reports.fixed': "Impostato sul server per tutti gli account (SUPERTEXT_VERSION_REPORTS).",
   'settings.save': 'Salva',
   'settings.connection.heading': 'Mailchimp',
   'settings.connection.account': 'Collegato all’account Mailchimp {account}.',
@@ -153,10 +163,8 @@ export const it: Messages = {
   'error.rateLimited': 'Troppe richieste a Supertext. Riprovi tra poco.',
   'error.unavailable': 'Il servizio Supertext al momento non è disponibile.',
   'error.http': 'Supertext ha risposto con HTTP {status}.',
-  'error.languagePair':
-    'Supertext non traduce da «{source}» a «{target}». Imposti il codice Supertext di questa lingua in Impostazioni → Lingue, con una regione (p. es. de-CH, fr-FR, en-US).',
-  'error.languagePairUnknown':
-    'Supertext non traduce in questa lingua. Imposti il codice Supertext di questa lingua in Impostazioni → Lingue, con una regione (p. es. de-CH, fr-FR, en-US).',
+  'error.languagePair': "Supertext non traduce da «{source}» a «{target}». Verifichi i codici Supertext in Impostazioni → Lingue (per esempio de-CH o es).",
+  'error.languagePairUnknown': "Supertext non traduce in questa lingua. Verifichi il suo codice Supertext in Impostazioni → Lingue (per esempio de-CH o es).",
   'error.incomplete': 'Supertext ha restituito una traduzione incompleta; per questa lingua non è stato salvato nulla.',
   'error.mergeTags':
     'Supertext ha restituito {received} tag di unione su {sent}; per questa lingua non è stato salvato nulla.',
@@ -179,5 +187,12 @@ export const it: Messages = {
   'error.interrupted':
     'L’app è stata riavviata durante la traduzione. La avvii di nuovo; le lingue completate vengono mantenute.',
   'error.session': 'La Sua sessione è scaduta. Colleghi di nuovo Mailchimp.',
+  'keyCheck.ok': "Chiave API verificata: la connessione a Supertext funziona.",
+  'keyCheck.invalid': "Supertext ha rifiutato la chiave API. Verifichi di aver copiato l'intera chiave oppure ne generi una nuova su supertext.com → Integrations → API (richiede il ruolo Admin). Non ha ancora un account Supertext? Ne crei uno su supertext.com.",
+  'keyCheck.missing': "Non è ancora stata inserita alcuna chiave API. Non ha ancora un account Supertext? Ne crei uno su supertext.com. Generi la Sua chiave API su supertext.com → Integrations → API (richiede il ruolo Admin).",
+  'keyCheck.unreachable': "Non è stato possibile verificare la chiave API perché Supertext non è raggiungibile. Le impostazioni sono salvate; riprovi più tardi.",
+  'keyCheck.error': "Non è stato possibile verificare la chiave API: Supertext ha risposto con un errore ({status}). Le impostazioni sono salvate; riprovi più tardi.",
+  'error.unsupportedLanguage': "La lingua «{code}» non ha ancora un codice Supertext, quindi non è stato inviato nulla. Chieda al Suo amministratore di impostarlo in Impostazioni → Lingue (per esempio de-CH o es).",
+  'error.unsupportedFeature': "Supertext non offre una forma di cortesia formale o informale per questa lingua. Imposti la forma di cortesia su «Lasciar decidere a Supertext» in Impostazioni → Traduzione.",
   'error.select': 'Selezioni una campagna e almeno una lingua.',
 };

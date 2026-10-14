@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { ErrorInfo } from '../i18n/error.js';
 import type { Politeness } from '../supertext/client.js';
+import type { ReporterState } from 'supertext-sdk/v1';
 
 /** What a Supertext folder starts: one language, or all of the account's languages. */
 export type FolderTarget = 'all' | string;
@@ -23,7 +24,11 @@ export interface Account {
   sourceLanguage: string;
   /** Mailchimp codes of the languages to translate into, in the order shown. */
   targets: string[];
-  /** Mailchimp code → Supertext code, where the account overrides the default. */
+  /**
+   * The language mapping: Mailchimp code → Supertext code ("de" → "de-CH"), one for both
+   * directions. A language without one is sent only if its Mailchimp code is a Supertext code
+   * as it is ("es"); otherwise it fails with `unsupportedLanguage`.
+   */
   languageCodes: Record<string, string>;
   /** Start translations by moving a campaign into a Supertext folder. */
   folderTrigger: boolean;
@@ -35,6 +40,10 @@ export interface Account {
   folderLocale: string;
   /** The Supertext folders the app created: Mailchimp folder ID → what it starts. */
   folders: Record<string, FolderTarget>;
+  /** "Send version information to Supertext" (SUPERTEXT_VERSION_REPORTS=0 turns it off for all accounts). */
+  versionReports: boolean;
+  /** The Commando Center reporter's state (the SDK's ReporterState JSON); see reporting.ts. */
+  reporter?: ReporterState | null;
   connectedAt: string;
 }
 
@@ -54,6 +63,8 @@ export const defaultAccount = (accountId: string): Account => ({
   limitOriginal: true,
   folderLocale: 'en',
   folders: {},
+  versionReports: true,
+  reporter: null,
   connectedAt: new Date().toISOString(),
 });
 
@@ -107,7 +118,10 @@ export interface Job {
 
 export interface Store {
   getAccount(accountId: string): Promise<Account | undefined>;
+  /** Saves the settings and the token; keeps the stored `reporter` (only `saveReporterState` writes it). */
   saveAccount(account: Account): Promise<void>;
+  /** Stores only the reporter's state, so a report finishing late never overwrites newer settings. */
+  saveReporterState(accountId: string, state: ReporterState): Promise<void>;
   /** Forgets everything about the account: settings, token, drafts, jobs. */
   deleteAccount(accountId: string): Promise<void>;
   /** Accounts that start translations from folders and have a token. */
@@ -174,7 +188,13 @@ export class MemoryStore implements Store {
   }
 
   async saveAccount(account: Account) {
-    this.accounts.set(account.accountId, structuredClone(account));
+    const reporter = this.accounts.get(account.accountId)?.reporter ?? null;
+    this.accounts.set(account.accountId, { ...structuredClone(account), reporter });
+  }
+
+  async saveReporterState(accountId: string, state: ReporterState) {
+    const account = this.accounts.get(accountId);
+    if (account) account.reporter = structuredClone(state);
   }
 
   async deleteAccount(accountId: string) {

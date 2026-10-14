@@ -1,14 +1,66 @@
+import type { ApiKeyCheck } from 'supertext-sdk/v1';
+import type { Translator } from '../i18n/index.js';
 import type { Account } from '../store/store.js';
 import { folderName } from '../translation/folders.js';
-import { LANGUAGE_CODES, LANGUAGES, languageName } from '../translation/languages.js';
+import {
+  isLanguage,
+  LANGUAGE_CODES,
+  languageName,
+  resolvedTarget,
+  SUPERTEXT_TARGETS,
+  supertextCodeOf,
+  supertextSource,
+  supportsPoliteness,
+} from '../translation/languages.js';
 import { releaseUrl, VERSION } from '../version.js';
-import { ApiKeyHelp, Layout, Notice, splitTemplate, type PageContext } from './layout.js';
+import { API_KEY_URL, ApiKeyHelp, Layout, Notice, SIGNUP_URL, splitTemplate, type PageContext } from './layout.js';
+
+/** The key check result in the interface language (the Commando Center's wording). */
+export function keyCheckText(t: Translator, check: ApiKeyCheck): string {
+  return t.t(`keyCheck.${check.status}`, { status: check.httpStatus ?? check.errorCode ?? '?' });
+}
+
+/** The key check message, with "supertext.com" and "supertext.com → Integrations → API" as links (new tab). */
+export function KeyCheckMessage(props: { t: Translator; check: ApiKeyCheck }) {
+  const parts = keyCheckText(props.t, props.check).split(/(supertext\.com → Integrations → API|supertext\.com)/);
+  return (
+    <span class={`key-check ${props.check.status}`}>
+      {parts.map((part) =>
+        part === 'supertext.com → Integrations → API' ? (
+          <a href={API_KEY_URL} target="_blank" rel="noopener">
+            {part}
+          </a>
+        ) : part === 'supertext.com' ? (
+          <a href={SIGNUP_URL} target="_blank" rel="noopener">
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </span>
+  );
+}
+
+/** The source language as Supertext knows it, or null when Supertext doesn't translate from it. */
+function sourceOk(account: Account): boolean {
+  try {
+    supertextSource(account.sourceLanguage, account.languageCodes);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface SettingsPageProps {
   ctx: PageContext;
   account: Account;
   /** A key is set on the server (SUPERTEXT_API_KEY). */
   serverKey: boolean;
+  /** Version reports are on for this account (the setting and SUPERTEXT_VERSION_REPORTS). */
+  reportsEnabled: boolean;
+  /** SUPERTEXT_VERSION_REPORTS decides, so the checkbox can't be changed. */
+  reportsFixed: boolean;
   saved?: boolean;
   invalidCodes?: string;
   foldersError?: string;
@@ -28,7 +80,14 @@ export function SettingsPage(props: SettingsPageProps) {
   const others = LANGUAGE_CODES.filter((code) => !account.targets.includes(code)).sort((a, b) =>
     languageName(a, t.locale).localeCompare(languageName(b, t.locale), t.locale),
   );
-  const ordered = [...account.targets.filter((code) => code in LANGUAGES), ...others];
+  const ordered = [...account.targets.filter(isLanguage), ...others];
+  const unmapped = account.targets.filter((code) => !resolvedTarget(code, account.languageCodes));
+  const noPoliteness = account.targets.filter((code) => {
+    const target = resolvedTarget(code, account.languageCodes);
+    return target && !supportsPoliteness(target);
+  });
+  const names = (codes: string[]) => codes.map((code) => languageName(code, t.locale)).join(', ');
+  const check = account.reporter?.keyCheck ?? null;
 
   return (
     <Layout ctx={ctx} title={heading}>
@@ -39,6 +98,12 @@ export function SettingsPage(props: SettingsPageProps) {
       {props.invalidCodes && <Notice tone="warning">{t.t('settings.invalidCodes', { codes: props.invalidCodes })}</Notice>}
       {props.foldersError && <Notice tone="warning">{t.t('settings.foldersFailed', { reason: props.foldersError })}</Notice>}
       {props.bothOff && <Notice tone="warning">{t.t('settings.start.none')}</Notice>}
+      {unmapped.length > 0 && <Notice tone="warning">{t.t('settings.languages.unmapped', { languages: names(unmapped) })}</Notice>}
+      {account.sourceLanguage && !sourceOk(account) && (
+        <Notice tone="warning">
+          {t.t('settings.languages.sourceUnsupported', { language: languageName(account.sourceLanguage, t.locale) })}
+        </Notice>
+      )}
 
       <form method="post" action="/settings" class="settings">
         <input type="hidden" name="csrf" value={ctx.csrf} />
@@ -61,6 +126,17 @@ export function SettingsPage(props: SettingsPageProps) {
               <input type="checkbox" name="removeKey" value="1" />
               {t.t('settings.apiKey.remove')}
             </label>
+          )}
+          {check && (
+            <p class="key-check-line" id="key-check">
+              <strong>{t.t('settings.keyCheck.label')}</strong>{' '}
+              <KeyCheckMessage t={t} check={check} />{' '}
+              <span class="muted">
+                {t.t('settings.keyCheck.at', {
+                  time: new Date(check.checkedAt).toLocaleString(t.locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }),
+                })}
+              </span>
+            </p>
           )}
           <div class="actions">
             <button type="button" id="test-button" data-testing={t.t('settings.testing')}>
@@ -96,11 +172,14 @@ export function SettingsPage(props: SettingsPageProps) {
                 <th></th>
                 <th></th>
                 <th>{t.t('settings.languages.code')}</th>
+                <th>{t.t('settings.languages.sent')}</th>
               </tr>
             </thead>
             <tbody>
               {ordered.map((code) => {
                 const chosen = account.targets.includes(code);
+                const exact = supertextCodeOf(code);
+                const sent = resolvedTarget(code, account.languageCodes);
                 return (
                   <tr class={chosen ? 'chosen' : 'other'}>
                     <td class="check">
@@ -113,16 +192,25 @@ export function SettingsPage(props: SettingsPageProps) {
                       <input
                         name={`code:${code}`}
                         value={account.languageCodes[code] ?? ''}
-                        placeholder={LANGUAGES[code]}
-                        size={10}
+                        placeholder={exact ?? ''}
+                        list="supertext-codes"
+                        size={14}
                         aria-label={`${t.t('settings.languages.code')}: ${languageName(code, t.locale)}`}
                       />
+                    </td>
+                    <td class={sent ? 'sent' : 'sent missing'}>
+                      {sent ? <code>{sent}</code> : t.t('settings.languages.notMapped')}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          <datalist id="supertext-codes">
+            {SUPERTEXT_TARGETS.map((code) => (
+              <option value={code} />
+            ))}
+          </datalist>
         </section>
 
         <section class="card">
@@ -165,6 +253,25 @@ export function SettingsPage(props: SettingsPageProps) {
               ))}
             </select>
           </label>
+          {account.tone !== 'default' && noPoliteness.length > 0 && (
+            <p class="help">{t.t('settings.style.notOffered', { languages: names(noPoliteness) })}</p>
+          )}
+        </section>
+
+        <section class="card">
+          <h2>{t.t('settings.reports.heading')}</h2>
+          <label class="inline">
+            <input
+              type="checkbox"
+              name="versionReports"
+              value="1"
+              checked={props.reportsEnabled}
+              disabled={props.reportsFixed}
+            />
+            {t.t('settings.reports.label')}
+          </label>
+          <p class="help">{t.t('settings.reports.help')}</p>
+          {props.reportsFixed && <p class="help muted">{t.t('settings.reports.fixed')}</p>}
         </section>
 
         <div class="actions">

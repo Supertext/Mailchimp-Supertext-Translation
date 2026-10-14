@@ -3,7 +3,7 @@ import type { MessageKey } from '../i18n/index.js';
 import { campaignUrl, type Campaign } from '../mailchimp/client.js';
 import type { Account, Job } from '../store/store.js';
 import { folderName } from '../translation/folders.js';
-import { languageName, supertextCode } from '../translation/languages.js';
+import { languageName, resolvedTarget } from '../translation/languages.js';
 import { History, JobPanel } from './job.js';
 import { ApiKeyHelp, appUrl, Layout, Notice, splitTemplate, type PageContext } from './layout.js';
 
@@ -129,7 +129,11 @@ export function TranslatePage(props: TranslatePageProps) {
               <label class="language">
                 <input type="checkbox" name="language" value={code} checked />
                 <span>{languageName(code, t.locale)}</span>
-                <code>{supertextCode(code, account.languageCodes)}</code>
+                {resolvedTarget(code, account.languageCodes) ? (
+                  <code>{resolvedTarget(code, account.languageCodes)}</code>
+                ) : (
+                  <span class="warning-text">{t.t('translate.notMapped')}</span>
+                )}
               </label>
             ))}
           </div>

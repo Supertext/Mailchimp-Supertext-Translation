@@ -6,10 +6,13 @@
  */
 
 import { LocalizedError, type MessageParams } from '../i18n/error.js';
-import { SupertextClient as SdkClient, SupertextError as SdkError, type FetchLike } from 'supertext-sdk';
+import { SupertextClient as SdkClient, SupertextError as SdkError, type ApiKeyCheck, type FetchLike } from 'supertext-sdk/v1';
 import { VERSION } from '../version.js';
 
-export { retryDelayMs } from 'supertext-sdk';
+export { retryDelayMs } from 'supertext-sdk/v1';
+
+/** The User-Agent suffix of every Supertext request (the GitHub repository name and version). */
+export const USER_AGENT = `Mailchimp-Supertext-Translation/${VERSION || 'dev'}`;
 
 /** `more`: formal address (Sie, vous, Lei). `less`: informal (du, tu). `default`: Supertext decides. */
 export type Politeness = 'default' | 'more' | 'less';
@@ -27,10 +30,11 @@ export interface ClientOptions {
 }
 
 export interface TranslateOptions {
-  /** Target, e.g. "de-CH" (the SDK adds a default region to a bare code). */
+  /** A Supertext target code as Supertext lists it ("de-CH", "es"), see translation/languages.ts. */
   targetLanguage: string;
-  /** Any form ("en", "en-US"); sent bare. Empty = auto-detect. */
+  /** A bare Supertext source code ("en"). Empty = auto-detect. */
   sourceLanguage?: string;
+  /** Only for targets that offer it (`Languages.supportsPoliteness`). */
   politeness?: Politeness;
 }
 
@@ -56,7 +60,7 @@ export class SupertextClient {
       baseUrl: options.endpoint || undefined,
       pollIntervalMs: options.pollIntervalMs,
       timeoutMs: options.pollTimeoutMs,
-      userAgent: `Mailchimp-Supertext-Translation/${VERSION || 'dev'}`,
+      userAgent: USER_AGENT,
       fetch: options.fetch as FetchLike | undefined,
       sleep: options.sleep,
     });
@@ -77,6 +81,11 @@ export class SupertextClient {
     } catch (error) {
       throw fromSdk(error);
     }
+  }
+
+  /** The automatic API key check (cost-free, never throws): ok, invalid, missing, unreachable or error. */
+  checkApiKey(): Promise<ApiKeyCheck> {
+    return this.client.checkApiKey();
   }
 
   /** Cost-free check that the key is valid and the API reachable. */
@@ -114,6 +123,22 @@ export function fromSdk(error: unknown): unknown {
         ? make('languagePair', `Supertext doesn't translate from "${source}" into "${target}".`, { source, target }, false)
         : make('languagePairUnknown', "Supertext doesn't translate into this language.", {}, false);
     }
+    case 'unsupported_language': {
+      const code = error.targetLang ?? error.sourceLang ?? '';
+      return make(
+        'unsupportedLanguage',
+        `The language "${code}" has no Supertext language yet. Set its Supertext code under Settings → Languages.`,
+        { code },
+        false,
+      );
+    }
+    case 'unsupported_feature':
+      return make(
+        'unsupportedFeature',
+        'Supertext offers no formal or informal address for this language. Set the form of address to "Let Supertext decide" under Settings.',
+        { feature: error.feature ?? '' },
+        false,
+      );
     case 'quota_exceeded':
       return make('limitExceeded', 'Your Supertext translation limit is exceeded.');
     case 'too_many_requests':

@@ -15,7 +15,7 @@ export function setup(env: Record<string, string> = {}) {
     const request = new Request(input, init);
     const host = new URL(request.url).host;
     if (host === 'mailchimp.test') return mailchimp.handle(request);
-    if (host === 'supertext.test') return supertext.handle(request);
+    if (host === 'supertext.test' || host === 'center.test') return supertext.handle(request);
     throw new Error(`Unexpected request to ${request.url}`);
   }) as typeof fetch;
   const config = loadConfig({
@@ -26,6 +26,8 @@ export function setup(env: Record<string, string> = {}) {
     SESSION_SECRET: 'session-secret',
     SUPERTEXT_API_ENDPOINT: 'https://supertext.test/v1/',
     SUPERTEXT_API_KEY: 'server-key',
+    // Version reports go to the stand-in (supertext.reports), never to the live Commando Center.
+    SUPERTEXT_REPORT_URL: 'https://center.test/api/v1/report',
     FOLDER_POLL_SECONDS: '0',
     ...env,
   });
@@ -107,4 +109,5 @@ export const STANDARD_SETTINGS: [string, string][] = [
   ['appTrigger', '1'],
   ['limitOriginal', '1'],
   ['tone', 'default'],
+  ['versionReports', '1'],
 ];

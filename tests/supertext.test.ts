@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fromSdk, SupertextClient } from '../src/supertext/client.js';
-import { SupertextError as SdkError } from 'supertext-sdk';
+import { SupertextError as SdkError } from 'supertext-sdk/v1';
 
 // The protocol itself is tested in the SDK repository; here only the app's layer.
 describe('the app layer over the Supertext SDK', () => {
@@ -23,6 +23,10 @@ describe('the app layer over the Supertext SDK', () => {
     expect(pair.code).toBe('languagePair');
     expect(pair.params).toEqual({ source: 'en', target: 'fr' });
     expect(code(new SdkError('invalid_language_pair', { status: 400 }))).toBe('languagePairUnknown');
+    const unsupported = fromSdk(new SdkError('unsupported_language', { targetLang: 'de' })) as { code: string; params: Record<string, string> };
+    expect(unsupported.code).toBe('unsupportedLanguage');
+    expect(unsupported.params).toEqual({ code: 'de' });
+    expect(code(new SdkError('unsupported_feature', { status: 400, feature: 'politeness' }))).toBe('unsupportedFeature');
   });
 
   it('translates segments in order and sends the app as User-Agent', async () => {
@@ -41,7 +45,7 @@ describe('the app layer over the Supertext SDK', () => {
       return Response.json({});
     }) as unknown as typeof fetch;
     const client = new SupertextClient({ apiKey: 'k', endpoint: 'https://api.test/v1', fetch: fetchFn });
-    const out = await client.translateSegments(['Hello', '<b>Bye</b>'], { targetLanguage: 'de', sourceLanguage: 'en-US' });
+    const out = await client.translateSegments(['Hello', '<b>Bye</b>'], { targetLanguage: 'de-DE', sourceLanguage: 'en' });
     expect(out).toEqual(['Hallo', '<b>Tschüss</b>']);
     expect(seen[0].ua).toMatch(/^supertext-sdk-typescript Mailchimp-Supertext-Translation\//);
     expect(seen[0].target).toBe('de-DE');

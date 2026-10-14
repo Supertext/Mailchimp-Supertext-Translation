@@ -9,11 +9,13 @@ import { SupertextClient } from './supertext/client.js';
 import { defaultAccount, type Account, type Store } from './store/store.js';
 import { removeFolders, syncFolders } from './translation/folders.js';
 import { startJob, type JobDeps } from './translation/jobs.js';
-import { isLanguage, isValidCode, normalizeCode } from './translation/languages.js';
+import { isLanguage, supertextCodeOf } from './translation/languages.js';
+import { Reporting } from './reporting.js';
 import { ConnectPage } from './views/connect.js';
 import { JobPanel } from './views/job.js';
 import { appUrl, type PageContext } from './views/layout.js';
-import { SettingsPage } from './views/settings.js';
+import { KeyCheckMessage, keyCheckText, SettingsPage } from './views/settings.js';
+import type { ApiKeyCheck } from 'supertext-sdk/v1';
 import { TranslatePage, type CampaignRow } from './views/translate.js';
 
 export interface AppDeps {
@@ -21,7 +23,7 @@ export interface AppDeps {
   store: Store;
   /** Injected for tests. */
   fetch?: typeof fetch;
-  /** Called with each job's completion promise (tests wait on it). */
+  /** Called with each job's (and background report's) completion promise (tests wait on it). */
   onJob?: (done: Promise<unknown>) => void;
 }
 
@@ -42,20 +44,24 @@ export function services(deps: AppDeps) {
       endpoint: config.supertextEndpoint || undefined,
       fetch: deps.fetch,
     });
+  const reporting = new Reporting({ config, store: deps.store, fetch: deps.fetch, onTask: deps.onJob });
   const jobDeps: JobDeps & { onJob?: (done: Promise<unknown>) => void } = {
     store: deps.store,
     mailchimp,
     supertext,
     onJob: deps.onJob,
+    onAuthenticationFailed: (account, status) => void reporting.inBackground(account, 'authenticationFailed', status),
   };
-  return { mailchimp, supertext, jobDeps };
+  return { mailchimp, supertext, jobDeps, reporting };
 }
 
 export function createApp(deps: AppDeps) {
   const { config, store } = deps;
   const app = new Hono();
   const sessions = new Sessions(config.sessionSecret || config.mailchimpClientSecret || 'local-development-only');
-  const { mailchimp, jobDeps } = services(deps);
+  const { mailchimp, jobDeps, reporting } = services(deps);
+  /** Back-end requests that run the app's code: the reporter notices upgrades and changed keys (in the background). */
+  const onRequest = (account: Account) => void reporting.inBackground(account, 'onRequest');
   const hasKey = (account: Account) => Boolean(account.apiKey || config.supertextApiKey);
   const secure = config.appUrl.startsWith('https://');
   const configured = Boolean(config.mailchimpClientId && config.mailchimpClientSecret);
@@ -133,6 +139,7 @@ export function createApp(deps: AppDeps) {
       );
     }
     const { account } = session;
+    onRequest(account);
     const offset = Math.max(0, Number(c.req.query('offset')) || 0);
     let rows: CampaignRow[] | undefined;
     let total = 0;
@@ -254,6 +261,7 @@ export function createApp(deps: AppDeps) {
     if (!hasKey(account)) {
       return c.json({ error: errorInfo(new LocalizedError('No Supertext API key configured.', 'noApiKey')) }, 400);
     }
+    onRequest(account);
     const { job, done } = await startJob(jobDeps, {
       accountId: account.accountId,
       campaignId: body.campaignId,
@@ -279,13 +287,24 @@ export function createApp(deps: AppDeps) {
     if (session instanceof Response) return session;
     const t = tr(c);
     const body = (await c.req.json().catch(() => ({}))) as { apiKey?: string };
-    const key = body.apiKey?.trim() || session.account.apiKey || config.supertextApiKey;
-    try {
-      await new SupertextClient({ apiKey: key, endpoint: config.supertextEndpoint || undefined, fetch: deps.fetch }).validate();
-      return c.json({ ok: true, message: t.t('settings.testOk') });
-    } catch (error) {
-      return c.json({ ok: false, message: t.error(errorInfo(error)) });
+    const typed = body.apiKey?.trim() ?? '';
+    const saved = reporting.apiKey(session.account);
+    let check: ApiKeyCheck | null;
+    if (!typed || typed === saved) {
+      // The saved key: the same check as after saving, stored and reported when its status changed.
+      check = (await reporting.run(session.account, 'testConnection'))?.check ?? null;
+    } else {
+      // A key typed but not saved yet: only checked, nothing stored or reported.
+      check = await new SupertextClient({ apiKey: typed, endpoint: config.supertextEndpoint || undefined, fetch: deps.fetch })
+        .checkApiKey()
+        .catch(() => null);
     }
+    if (!check) return c.json({ ok: false, message: t.t('keyCheck.error', { status: '?' }) });
+    return c.json({
+      ok: check.status === 'ok',
+      message: keyCheckText(t, check),
+      html: (await KeyCheckMessage({ t, check })).toString(),
+    });
   });
 
   // --- Settings ----------------------------------------------------------------
@@ -294,12 +313,15 @@ export function createApp(deps: AppDeps) {
     const session = await current(c);
     if (!session) return c.redirect('/', 302);
     const t = tr(c);
+    onRequest(session.account);
     return c.html(
       page(
         SettingsPage({
           ctx: pageContext(t, 'settings', session),
           account: session.account,
           serverKey: Boolean(config.supertextApiKey),
+          reportsEnabled: reporting.enabled(session.account),
+          reportsFixed: reporting.fixedByEnvironment,
           saved: c.req.query('saved') === '1',
           invalidCodes: c.req.query('invalid') || undefined,
           foldersError: c.req.query('folders') || undefined,
@@ -336,10 +358,13 @@ export function createApp(deps: AppDeps) {
       if (!name.startsWith('code:')) continue;
       const code = String(Array.isArray(value) ? value[0] : value).trim();
       if (!code) continue;
-      if (isValidCode(code)) codes[name.slice(5)] = normalizeCode(code);
+      const language = name.slice(5);
+      const exact = supertextCodeOf(code);
+      if (isLanguage(language) && exact) codes[language] = exact;
       else invalid.push(code);
     }
     account.languageCodes = codes;
+    if (!reporting.fixedByEnvironment) account.versionReports = field('versionReports') === '1';
     account.folderTrigger = field('folderTrigger') === '1';
     account.appTrigger = field('appTrigger') === '1';
     const bothOff = !account.folderTrigger && !account.appTrigger;
@@ -354,6 +379,8 @@ export function createApp(deps: AppDeps) {
       foldersError = t.error(errorInfo(error));
     }
     await store.saveAccount(account);
+    // The automatic API key check (shown on the settings page) and the settings_saved report.
+    await reporting.run(account, 'afterSettingsSaved');
     return c.redirect(
       appUrl('/settings', {
         saved: '1',

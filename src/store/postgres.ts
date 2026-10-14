@@ -1,4 +1,5 @@
 import pg from 'pg';
+import type { ReporterState } from 'supertext-sdk/v1';
 import type { ErrorInfo } from '../i18n/error.js';
 import {
   defaultAccount,
@@ -93,11 +94,22 @@ export class PostgresStore implements Store {
   }
 
   async saveAccount(account: Account) {
-    const { accessToken, apiKey, ...data } = account;
+    // The reporter's state is written only by saveReporterState: a settings save that started
+    // before a background report finished must not put back the older state.
+    const { accessToken, apiKey, reporter: _reporter, ...data } = account;
     await this.pool.query(
       `INSERT INTO accounts (account_id, access_token, api_key, data, updated_at) VALUES ($1, $2, $3, $4, now())
-       ON CONFLICT (account_id) DO UPDATE SET access_token = $2, api_key = $3, data = $4, updated_at = now()`,
+       ON CONFLICT (account_id) DO UPDATE SET access_token = $2, api_key = $3,
+         data = CASE WHEN accounts.data ? 'reporter' THEN $4::jsonb || jsonb_build_object('reporter', accounts.data->'reporter') ELSE $4::jsonb END,
+         updated_at = now()`,
       [account.accountId, this.secrets.encrypt(accessToken), this.secrets.encrypt(apiKey), data],
+    );
+  }
+
+  async saveReporterState(accountId: string, state: ReporterState) {
+    await this.pool.query(
+      `UPDATE accounts SET data = jsonb_set(data, '{reporter}', $2::jsonb, true) WHERE account_id = $1`,
+      [accountId, JSON.stringify(state)],
     );
   }
 

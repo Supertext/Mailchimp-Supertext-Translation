@@ -3,7 +3,8 @@ import { en } from '../src/i18n/en.js';
 import { errorInfo } from '../src/i18n/error.js';
 import { LOCALES, MESSAGES, localeFromRequest, resolveLocale, translator } from '../src/i18n/index.js';
 import { SupertextClient } from '../src/supertext/client.js';
-import { languageName, supertextCode, supertextSource } from '../src/translation/languages.js';
+import { fromSdk } from '../src/supertext/client.js';
+import { languageName, resolvedTarget, supertextCodeOf, supertextSource, supertextTarget, supportsPoliteness } from '../src/translation/languages.js';
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const urls = (text: string) => [...text.matchAll(/https:\/\/\S+?(?=[\s;)]|\.?$|\. )/g)].map((m) => m[0]).sort();
@@ -72,18 +73,43 @@ describe('languages', () => {
     expect(languageName('no', 'en')).toBe('Norwegian Bokmål');
   });
 
-  it("sends the account's Supertext code, else a regional default", () => {
-    expect(supertextCode('de', { de: 'de-ch' })).toBe('de-CH');
-    expect(supertextCode('fr', {})).toBe('fr-FR');
-    expect(supertextCode('no', {})).toBe('nb-NO');
-    expect(supertextCode('de', { de: 'de_ch' })).toBe('de-CH');
-    expect(supertextCode('xx', {})).toBe('xx');
+  it("sends the account's Supertext code, else an exact match, and never guesses a region", () => {
+    expect(supertextTarget('de', { de: 'de-CH' })).toBe('de-CH');
+    expect(supertextTarget('es', {})).toBe('es');
+    expect(supertextTarget('zh', { zh: 'zh-Hans' })).toBe('zh-Hans');
+    expect(resolvedTarget('de', {})).toBeNull();
+    expect(resolvedTarget('no', {})).toBeNull();
+    expect(resolvedTarget('no', { no: 'nb' })).toBe('nb');
+    const error = (() => {
+      try {
+        supertextTarget('fr', {});
+      } catch (caught) {
+        return fromSdk(caught) as { message: string; code: string; params: Record<string, string> };
+      }
+    })();
+    expect(error?.code).toBe('unsupportedLanguage');
+    expect(error?.params).toEqual({ code: 'fr' });
+    expect(translator('it').error(error!)).toContain('«fr»');
   });
 
-  it('sends the source as the bare language', () => {
+  it('accepts only Supertext codes as the mapping, in their exact form', () => {
+    expect(supertextCodeOf('de_ch')).toBe('de-CH');
+    expect(supertextCodeOf('ZH-hans')).toBe('zh-Hans');
+    expect(supertextCodeOf('de')).toBeNull();
+    expect(supertextCodeOf('fr-BE')).toBeNull();
+  });
+
+  it('sends the source as the bare language, through the same mapping', () => {
     expect(supertextSource('en', {})).toBe('en');
-    expect(supertextSource('no', {})).toBe('nb');
+    expect(supertextSource('en', { en: 'en-US' })).toBe('en');
     expect(supertextSource('pt', { pt: 'pt-BR' })).toBe('pt');
     expect(supertextSource('', {})).toBe('');
+    expect(() => supertextSource('ar', {})).toThrow();
+  });
+
+  it('offers formal and informal address only where Supertext does', () => {
+    expect(supportsPoliteness('de-CH')).toBe(true);
+    expect(supportsPoliteness('en-US')).toBe(false);
+    expect(supportsPoliteness('xx')).toBe(false);
   });
 });

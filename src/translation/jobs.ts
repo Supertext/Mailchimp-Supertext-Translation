@@ -1,8 +1,8 @@
 import { errorInfo, LocalizedError, type ErrorInfo } from '../i18n/error.js';
 import { MailchimpClient, type Campaign } from '../mailchimp/client.js';
-import type { SupertextClient } from '../supertext/client.js';
+import { fromSdk, type SupertextClient } from '../supertext/client.js';
 import { newJobId, type Account, type Job, type JobItem, type Store } from '../store/store.js';
-import { supertextCode, supertextSource } from './languages.js';
+import { supertextSource, supertextTarget, supportsPoliteness } from './languages.js';
 import { originalSegment } from './segments.js';
 import { translateCampaign } from './translate.js';
 
@@ -16,6 +16,8 @@ export interface JobDeps {
   store: Store;
   mailchimp: (account: Account) => MailchimpClient;
   supertext: (account: Account) => Pick<SupertextClient, 'translateSegments'>;
+  /** Supertext rejected the key (HTTP 401/403) during a translation: the Commando Center hears of it once. */
+  onAuthenticationFailed?: (account: Account, httpStatus: number) => void;
 }
 
 export interface JobRequest {
@@ -106,6 +108,14 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
     throw new LocalizedError('Mailchimp returned no HTML for this campaign.', 'noContent');
   }
 
+  // The campaigns' language, as Supertext knows it (the same for every target).
+  let sourceLanguage: string;
+  try {
+    sourceLanguage = supertextSource(account.sourceLanguage, account.languageCodes);
+  } catch (error) {
+    throw fromSdk(error);
+  }
+
   const drafts = new Map((await store.translations(account.accountId, source.id)).map((t) => [t.language, t.targetId]));
   const targetFolder = folderId ?? source.settings.folder_id ?? '';
 
@@ -114,6 +124,12 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
     try {
       if (language === account.sourceLanguage) {
         throw new LocalizedError('This is the language of the campaign itself.', 'sameLanguage');
+      }
+      let supertextTargetCode: string;
+      try {
+        supertextTargetCode = supertextTarget(language, account.languageCodes);
+      } catch (error) {
+        throw fromSdk(error); // unsupportedLanguage: nothing is sent for this language
       }
       const existingId = drafts.get(language);
       let target: Campaign | undefined = existingId ? await mailchimp.campaign(existingId) : undefined;
@@ -126,9 +142,10 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
         content,
         target,
         language,
-        supertextTarget: supertextCode(language, account.languageCodes),
-        sourceLanguage: supertextSource(account.sourceLanguage, account.languageCodes),
-        politeness: account.tone,
+        supertextTarget: supertextTargetCode,
+        sourceLanguage,
+        // Formal/informal only where Supertext offers it for the target.
+        politeness: supportsPoliteness(supertextTargetCode) ? account.tone : 'default',
         overwrite: job.overwrite,
         folderId: targetFolder,
       });
@@ -146,6 +163,10 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
       const info: ErrorInfo = errorInfo(error);
       item.state = 'failed';
       item.error = info;
+      if (info.code === 'auth') {
+        const status = (error as { status?: number }).status;
+        deps.onAuthenticationFailed?.(account, status === 403 ? 403 : 401);
+      }
       if (info.code && FATAL.has(info.code)) {
         job.items.push(item);
         return finish(store, job, 'failed', info);

@@ -74,7 +74,9 @@ The result shows the reason for each language that fails; the other languages st
 | --- | --- |
 | *Add your Supertext API key* | An administrator needs to enter the API key under Settings. |
 | *Authentication failed* | The API key is no longer valid; tell your administrator. |
-| *Supertext doesn't translate into …* | The language needs a Supertext code with a region; an administrator sets it under Settings → Languages. |
+| *The language “de” has no Supertext code yet, so nothing was sent* | The language isn't mapped to a Supertext language yet; nothing was sent to Supertext for it, the other languages still ran. An administrator enters its Supertext code under Settings → Languages (for example `de-CH`). On the Translate page such a language shows *No Supertext code yet*. |
+| *Supertext offers no formal or informal address for this language* | An administrator sets the form of address to *Let Supertext decide* under Settings → Translation. |
+| *Supertext doesn't translate into …* | An administrator checks the language's Supertext code under Settings → Languages. |
 | *Supertext returned 2 of 3 merge tags; nothing was saved for this language.* | A merge tag got lost in the translation, so no draft was saved (a lost `*|FNAME|*` would show to subscribers). Translate that language again. |
 | *This campaign is a translation made by Supertext* | Translate the original instead. |
 | *Mailchimp returned no content for this campaign* | The campaign was probably made with Mailchimp's new email builder; see the installation guide. |

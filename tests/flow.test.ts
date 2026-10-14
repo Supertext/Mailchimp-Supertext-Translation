@@ -97,10 +97,15 @@ describe('settings', () => {
     await env.saveSettings([...STANDARD_SETTINGS, ['apiKey', 'Supertext-Auth-Key own-key']]);
     expect((await env.store.getAccount(ACCOUNT_ID))!.apiKey).toBe('Supertext-Auth-Key own-key');
     const ok = await (await env.api('POST', '/api/test', {})).json();
-    expect(ok).toEqual({ ok: true, message: 'Connected. The API key works.' });
+    expect(ok).toMatchObject({ ok: true, message: 'API key checked: the connection to Supertext works.' });
     const bad = await (await env.api('POST', '/api/test', { apiKey: 'invalid' })).json();
     expect(bad.ok).toBe(false);
-    expect(bad.message).toMatch(/^Authentication failed/);
+    expect(bad.message).toMatch(/^Supertext rejected the API key/);
+    // Both links, opening in a new tab.
+    expect(bad.html).toContain('<a href="https://www.supertext.com/en/integrations/api" target="_blank" rel="noopener">');
+    expect(bad.html).toContain('<a href="https://www.supertext.com/person/en/account/signin" target="_blank" rel="noopener">');
+    // A typed, unsaved key is only checked: the stored result stays the saved key's.
+    expect((await env.store.getAccount(ACCOUNT_ID))!.reporter?.keyCheck?.status).toBe('ok');
   });
 
   it('shows the version linked to its release', async () => {
@@ -235,17 +240,56 @@ describe('translating from the app', () => {
     expect([...env.mailchimp.campaigns.keys()].filter((key) => key.startsWith('c-copy-'))).toEqual([]);
   });
 
-  it('skips a language Supertext refuses and goes on with the others', async () => {
+  it('sends nothing for a language without a Supertext code and goes on with the others', async () => {
     const env = setup();
     await env.connect();
+    // "fr-Latn" isn't a Supertext code: refused when saving, so French has no code ("fr" alone isn't one either).
     await env.saveSettings([...STANDARD_SETTINGS.filter(([name]) => name !== 'code:fr'), ['code:fr', 'fr-Latn']]);
+    const settings = await (await env.request('/settings')).text();
+    expect(settings).toContain('These languages have no Supertext code yet');
     const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de', 'fr'] })).json();
     await env.settle();
     const job = (await env.store.getJob(ACCOUNT_ID, id))!;
     expect(job.status).toBe('done');
     expect(job.items.map((item) => [item.language, item.state, item.error?.code])).toEqual([
       ['de', 'created', undefined],
-      ['fr', 'failed', 'languagePair'],
+      ['fr', 'failed', 'unsupportedLanguage'],
+    ]);
+    expect(env.supertext.documents.map((d) => d.target)).toEqual(['de-CH']);
+  });
+
+  it('translates a language whose Mailchimp code is a Supertext code as it is, and sends no politeness it lacks', async () => {
+    const env = setup();
+    await env.connect();
+    await env.saveSettings([
+      ['sourceLanguage', 'en'],
+      ['target', 'es'],
+      ['target', 'en'],
+      ['code:en', 'en-us'],
+      ['appTrigger', '1'],
+      ['tone', 'more'],
+    ]);
+    expect((await env.store.getAccount(ACCOUNT_ID))!.languageCodes).toEqual({ en: 'en-US' });
+    await env.saveSettings([
+      ['sourceLanguage', 'de'],
+      ['code:de', 'de-CH'],
+      ['target', 'es'],
+      ['target', 'en'],
+      ['code:en', 'en-US'],
+      ['appTrigger', '1'],
+      ['tone', 'more'],
+    ]);
+    const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['es', 'en'] })).json();
+    await env.settle();
+    const job = (await env.store.getJob(ACCOUNT_ID, id))!;
+    expect(job.items.map((item) => [item.language, item.state])).toEqual([
+      ['es', 'created'],
+      ['en', 'created'],
+    ]);
+    // The mapping serves the source too (de-CH → de); English has no formal/informal address.
+    expect(env.supertext.documents.map((d) => [d.source, d.target, d.politeness])).toEqual([
+      ['de', 'es', 'more'],
+      ['de', 'en-US', undefined],
     ]);
   });
 
@@ -338,5 +382,81 @@ describe('disconnecting', () => {
     expect(await env.store.getAccount(ACCOUNT_ID)).toBeUndefined();
     expect([...env.mailchimp.folders.values()].map((folder) => folder.name)).toEqual(['Seasonal']);
     expect(await (await env.request('/?disconnected=1')).text()).toContain('Mailchimp is disconnected.');
+  });
+});
+
+describe('Commando Center', () => {
+  it('checks the key and reports "installed", then "settings_saved", with the account as the site', async () => {
+    const env = setup();
+    await env.connect();
+    await env.saveSettings(STANDARD_SETTINGS);
+    await env.saveSettings(STANDARD_SETTINGS);
+    await env.settle();
+    // The first back-end page after connecting already reports the installation.
+    expect(env.supertext.reports.map((report) => report.event)).toEqual(['installed', 'settings_saved', 'settings_saved']);
+    const [installed, saved] = env.supertext.reports;
+    expect(installed).toMatchObject({
+      schema: 1,
+      event: 'installed',
+      site_url: `https://admin.mailchimp.com/account/${ACCOUNT_ID}`,
+      plugin: { name: 'Mailchimp-Supertext-Translation' },
+      system: { name: 'Mailchimp' },
+      runtime: { name: 'Node.js' },
+      api_key_configured: true,
+      api_key_check: { status: 'ok' },
+      sdk_version: '0.2.1',
+    });
+    expect(installed).not.toHaveProperty('callback');
+    expect(saved).toMatchObject({ event: 'settings_saved' });
+    expect(JSON.stringify(env.supertext.reports)).not.toContain('server-key');
+    expect(JSON.stringify(env.supertext.reports)).not.toContain('Swiss Chocolate');
+    const page = await (await env.request('/settings')).text();
+    expect(page).toContain('API key checked: the connection to Supertext works.');
+    expect(page).toContain('Send version information to Supertext');
+  });
+
+  it('sends nothing when the setting is off, but still checks the key', async () => {
+    const env = setup({ SUPERTEXT_API_KEY: 'invalid' });
+    await env.connect();
+    await env.saveSettings(STANDARD_SETTINGS.filter(([name]) => name !== 'versionReports'));
+    await env.settle();
+    const before = env.supertext.reports.length; // the first page after connecting, while it was still on
+    await env.saveSettings(STANDARD_SETTINGS.filter(([name]) => name !== 'versionReports'));
+    await env.request('/');
+    await env.api('POST', '/api/test', {});
+    await env.settle();
+    expect(env.supertext.reports.length).toBe(before);
+    const account = (await env.store.getAccount(ACCOUNT_ID))!;
+    expect(account.versionReports).toBe(false);
+    expect(account.reporter?.keyCheck?.status).toBe('invalid');
+    const page = await (await env.request('/settings')).text();
+    expect(page).toContain('Supertext rejected the API key.');
+  });
+
+  it('SUPERTEXT_VERSION_REPORTS=0 turns reports off for every account', async () => {
+    const env = setup({ SUPERTEXT_VERSION_REPORTS: '0' });
+    await env.connect();
+    await env.saveSettings(STANDARD_SETTINGS);
+    await env.settle();
+    expect(env.supertext.reports).toEqual([]);
+    const page = await (await env.request('/settings')).text();
+    expect(page).toMatch(/name="versionReports" value="1" disabled/);
+  });
+
+  it('reports a key rejected during a translation once', async () => {
+    const env = setup();
+    await env.connect();
+    await env.saveSettings(STANDARD_SETTINGS);
+    await env.settle();
+    // The key stops working without the app noticing (onRequest only re-checks a changed key).
+    env.supertext.handle = ((original) => async (request: Request) =>
+      /\/translate\//.test(request.url) ? new Response('{"detail":"revoked"}', { status: 403 }) : original(request))(env.supertext.handle);
+    for (let i = 0; i < 2; i++) {
+      await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de'], overwrite: true });
+      await env.settle();
+    }
+    const checks = env.supertext.reports.filter((report) => report.event === 'api_key_check');
+    expect(checks).toHaveLength(1);
+    expect(checks[0]).toMatchObject({ api_key_check: { status: 'invalid', http_status: 403 } });
   });
 });

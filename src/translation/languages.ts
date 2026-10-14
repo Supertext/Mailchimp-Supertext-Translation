@@ -1,53 +1,25 @@
-// Mailchimp subscriber languages ↔ Supertext language codes. Shared by server and browser.
+// Mailchimp subscriber languages ↔ Supertext language codes.
 //
 // Mailchimp stores each subscriber's language as a two-letter code ("de"),
 // detected from the browser or set in the audience; the language segment
-// condition takes the same code. Supertext needs a regional target code
-// ("de-CH", "fr-FR"), which each account can set per language; the source is
-// sent as the bare language ("en").
+// condition takes the same code. Supertext accepts only the codes its
+// `GET features` lists (the SDK's `Languages`): targets regional only for
+// de/en/fr/it/pt ("de-CH"), script for zh/sr ("zh-Hans"), bare for the rest
+// ("es", "nl"); sources bare ("en"). Nothing is guessed: the account's own
+// Supertext code for the language (Settings → Languages) wins, else a
+// Mailchimp code that is a Supertext code as it is ("es"), else the SDK's
+// error `unsupported_language` and nothing is sent. One mapping serves both
+// directions (`de-CH` as a source is sent as `de`).
 
-import { LanguageCodes } from 'supertext-sdk';
+import { Languages, type LanguageMapping } from 'supertext-sdk/v1';
 
-/** Languages offered as targets: Mailchimp code → default Supertext code. */
-export const LANGUAGES: Record<string, string> = {
-  ar: 'ar-SA',
-  bg: 'bg-BG',
-  cs: 'cs-CZ',
-  da: 'da-DK',
-  de: 'de-DE',
-  el: 'el-GR',
-  en: 'en-US',
-  es: 'es-ES',
-  et: 'et-EE',
-  fi: 'fi-FI',
-  fr: 'fr-FR',
-  hr: 'hr-HR',
-  hu: 'hu-HU',
-  it: 'it-IT',
-  ja: 'ja-JP',
-  ko: 'ko-KR',
-  lt: 'lt-LT',
-  lv: 'lv-LV',
-  nl: 'nl-NL',
-  no: 'nb-NO',
-  pl: 'pl-PL',
-  pt: 'pt-PT',
-  ro: 'ro-RO',
-  ru: 'ru-RU',
-  sk: 'sk-SK',
-  sl: 'sl-SI',
-  sr: 'sr-RS',
-  sv: 'sv-SE',
-  th: 'th-TH',
-  tr: 'tr-TR',
-  uk: 'uk-UA',
-  vi: 'vi-VN',
-  zh: 'zh-CN',
-};
+/** Mailchimp's subscriber languages offered as targets (and as the campaigns' language). */
+export const LANGUAGE_CODES: readonly string[] = [
+  'ar', 'bg', 'cs', 'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr', 'hr', 'hu', 'it', 'ja', 'ko', 'lt',
+  'lv', 'nl', 'no', 'pl', 'pt', 'ro', 'ru', 'sk', 'sl', 'sr', 'sv', 'th', 'tr', 'uk', 'vi', 'zh',
+];
 
-export const LANGUAGE_CODES = Object.keys(LANGUAGES);
-
-export const isLanguage = (code: string): boolean => code in LANGUAGES;
+export const isLanguage = (code: string): boolean => LANGUAGE_CODES.includes(code);
 
 /** The language's name in the given interface language ("de" in French → "allemand"). */
 export function languageName(code: string, uiLocale: string): string {
@@ -60,22 +32,34 @@ export function languageName(code: string, uiLocale: string): string {
   return code;
 }
 
-/** "pt_br" → "pt-BR"; "de" → "de" (the SDK's normalization). */
-export const normalizeCode = (code: string): string => LanguageCodes.normalize(code);
+/** Supertext's target codes, as they are to be entered ("de-CH", "es", "zh-Hans"). */
+export const SUPERTEXT_TARGETS: readonly string[] = Languages.TARGETS.map((language) => language.code);
 
-/** The code sent to Supertext for a Mailchimp language: the account's own setting, else the default. */
-export function supertextCode(language: string, overrides: Record<string, string>): string {
-  const own = overrides[language]?.trim();
-  return own ? normalizeCode(own) : (LANGUAGES[language] ?? language);
+/** A typed Supertext code in its exact form ("de_ch" → "de-CH"), or null if Supertext doesn't offer it. */
+export const supertextCodeOf = (code: string): string | null => Languages.matchTarget(code.trim());
+
+/**
+ * The target code sent for a Mailchimp language: the account's mapping, else an exact match.
+ * Throws the SDK's `unsupported_language` error otherwise (see supertext/client.ts → fromSdk).
+ */
+export const supertextTarget = (language: string, mapping: LanguageMapping): string => Languages.target(language, mapping);
+
+/** Like `supertextTarget`, but null for a language that has no Supertext code (for the settings and translate pages). */
+export function resolvedTarget(language: string, mapping: LanguageMapping): string | null {
+  try {
+    return supertextTarget(language, mapping);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * The source code sent to Supertext: the bare language of the Supertext code ("en-US" → "en",
- * Mailchimp's "no" → "nb"). Empty when no source language is set (Supertext detects it).
+ * The source code sent for the campaigns' language: the mapping's value in its source form
+ * ("en-US" → "en"), else the bare Supertext source. '' = let Supertext detect it.
+ * Throws `unsupported_language` for a language Supertext doesn't translate from.
  */
-export function supertextSource(language: string, overrides: Record<string, string>): string {
-  return language ? supertextCode(language, overrides).split('-')[0] : '';
-}
+export const supertextSource = (language: string, mapping: LanguageMapping): string =>
+  language ? Languages.source(language, mapping) : '';
 
-/** A plausible language code: "de", "de-CH", "zh-Hant", "es-419" (the SDK's check). */
-export const isValidCode = (code: string): boolean => LanguageCodes.isValid(code);
+/** Whether Supertext offers formal and informal address for this target code. */
+export const supportsPoliteness = (target: string): boolean => Languages.supportsPoliteness(target) === true;

@@ -18,6 +18,10 @@ export interface Config {
   databaseUrl: string;
   /** Key for encrypting stored tokens and API keys; falls back to a key derived from the client secret. */
   encryptionKey: string;
+  /** SUPERTEXT_VERSION_REPORTS: `0` turns the version reports off for every account (see reporting.ts). */
+  versionReports: string | undefined;
+  /** SUPERTEXT_REPORT_URL: where version reports go ('' = the SDK's default, the live Commando Center). Tests point it at a stand-in. */
+  reportUrl: string;
   /** How often the Supertext folders are checked, in seconds (0 = never: tests). */
   pollSeconds: number;
 }
@@ -36,6 +40,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     supertextEndpoint: env.SUPERTEXT_API_ENDPOINT ?? '',
     databaseUrl: env.DATABASE_URL ?? '',
     encryptionKey: env.APP_ENCRYPTION_KEY ?? '',
+    versionReports: env.SUPERTEXT_VERSION_REPORTS,
+    reportUrl: env.SUPERTEXT_REPORT_URL ?? '',
     pollSeconds: Number.isFinite(poll) && env.FOLDER_POLL_SECONDS !== undefined && env.FOLDER_POLL_SECONDS !== '' ? Math.max(0, poll) : 60,
   };
 }

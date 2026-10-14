@@ -22,13 +22,19 @@ fi
 commit="$(git -C "$src" rev-parse HEAD)"
 version="$(node -p "require('$src/sdk/typescript/package.json').version")"
 cp -R "$src/sdk/typescript" "$work/ts"
+rm -rf "$work/ts/node_modules" "$work/ts/dist"
 (cd "$work/ts" && npm ci --no-audit --no-fund --silent && npm run --silent build)
 rm -rf vendor/supertext-sdk
 mkdir -p vendor/supertext-sdk
-cp "$work"/ts/dist/*.js "$work"/ts/dist/*.d.ts vendor/supertext-sdk/
+# dist/ has the version-neutral index and one folder per API version (v1/): copy the tree.
+(cd "$work/ts/dist" && find . \( -name '*.js' -o -name '*.d.ts' \) | while read -r f; do mkdir -p "$OLDPWD/vendor/supertext-sdk/$(dirname "$f")"; cp "$f" "$OLDPWD/vendor/supertext-sdk/$f"; done)
 cp "$src/sdk/typescript/LICENSE" vendor/supertext-sdk/LICENSE
-printf '{\n  "name": "supertext-sdk",\n  "version": "%s",\n  "private": true,\n  "type": "module",\n  "main": "./index.js",\n  "types": "./index.d.ts",\n  "license": "MIT"\n}\n' "$version" > vendor/supertext-sdk/package.json
+printf '{\n  "name": "supertext-sdk",\n  "version": "%s",\n  "private": true,\n  "type": "module",\n  "main": "./index.js",\n  "types": "./index.d.ts",\n  "exports": {\n    ".": { "types": "./index.d.ts", "import": "./index.js" },\n    "./v1": { "types": "./v1/index.d.ts", "import": "./v1/index.js" }\n  },\n  "license": "MIT"\n}\n' "$version" > vendor/supertext-sdk/package.json
 printf '%s\n' "$commit" > vendor/supertext-sdk/COMMIT
 printf '%s\n' "$version" > vendor/supertext-sdk/VERSION
 printf '# Supertext SDK (bundled copy)\n\nBuilt JavaScript of the TypeScript part of the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide),\nversion %s, commit `%s`.\n\nDon'"'"'t edit these files: fix the SDK in its own repository, then run `scripts/vendor-sdk.sh`.\n' "$version" "$commit" > vendor/supertext-sdk/README.md
+# package-lock.json records the linked package's version: update it when that changed.
+if [ "$(node -p "require('./package-lock.json').packages['vendor/supertext-sdk']?.version ?? ''")" != "$version" ]; then
+  npm install --package-lock-only --no-audit --no-fund --silent
+fi
 echo "vendor/supertext-sdk: Supertext SDK (TypeScript) $version from commit $commit"

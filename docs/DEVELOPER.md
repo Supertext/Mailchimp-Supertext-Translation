@@ -82,11 +82,11 @@ English, German, French and Italian. Mailchimp doesn't pass a language to apps, 
 
 AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML file, poll its status, download the translation, delete the file), handled entirely by the Supertext SDK: the `Supertext-Auth-Key` header (a pasted prefix is stripped), the multipart upload with a file part of type exactly `text/html`, HTTP 429 retries (`Retry-After`, else 1/2/4/8 s with jitter), polling every 2 s with a 3-minute timeout, the delete after every upload, the HTML packing (one `<div data-st-id="N">` per segment) and the language codes. See the SDK's [integration guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/integration-guide.md) and [API reference](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/api-reference.md).
 
-`src/supertext/client.ts` creates one SDK client per account with the key and the base URL (`SUPERTEXT_API_ENDPOINT` for stand-ins), sends `Mailchimp-Supertext-Translation/<version>` in the User-Agent, and turns the SDK's error codes into the app's (`authentication_failure` → `auth`, `quota_exceeded` → `limitExceeded`, `invalid_language_pair` → `languagePair`, `transport_error` → `unreachable`, `incomplete_response` → `incomplete` …), which the interface shows in its four languages. *Test connection* is the SDK's cost-free `validateApiKey()` (`GET features`). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`. The SDK never puts the key into error details.
+`src/supertext/client.ts` creates one SDK client per account with the key and the base URL (`SUPERTEXT_API_ENDPOINT` for stand-ins), sends `Mailchimp-Supertext-Translation/<version>` in the User-Agent, and turns the SDK's error codes into the app's (`authentication_failure` → `auth`, `quota_exceeded` → `limitExceeded`, `invalid_language_pair` → `languagePair`, `unsupported_language` → `unsupportedLanguage`, `unsupported_feature` → `unsupportedFeature`, `transport_error` → `unreachable`, `incomplete_response` → `incomplete` …), which the interface shows in its four languages. *Test connection* and the automatic key check are the SDK's cost-free `checkApiKey()` (`GET features`; see *Commando Center*). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`. The SDK never puts the key into error details.
 
 ## Supertext SDK
 
-All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json`, `LICENSE`, `COMMIT` (the SDK commit), `VERSION` and a `README.md`. The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
+All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`; since 0.2.0 the API is in the `v1` namespace, imported as `supertext-sdk/v1`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json`, `LICENSE`, `COMMIT` (the SDK commit), `VERSION` and a `README.md`. The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
 
 ```bash
 scripts/vendor-sdk.sh                  # latest main of the SDK repository
@@ -98,13 +98,28 @@ then `npm install`, run the tests and commit `vendor/`, `package-lock.json` and 
 
 ## Language codes
 
-Supertext wants the **source** as a bare language (`en`) and the **target** as a regional code (`de-DE`, `fr-CH`, `en-US`); a bare target such as `de` is rejected with `INVALID_LANGUAGE_PAIR`. Mailchimp's subscriber languages are two-letter codes, so `src/translation/languages.ts` maps them:
+Supertext accepts only the codes its `GET features` lists (the SDK's `Languages`, `supertext-sdk/v1`; spec `spec/languages.json` in the SDK repository): sources are bare (`en`); targets are regional only for de/en/fr/it/pt (`de-CH`, `en-US`, `pt-BR`), script for zh/sr (`zh-Hans`, `sr-Latn`), `gsw-u-sd-chzh`/`chbe`, and bare for everything else (`es`, `nl`, `nb`, `sl`). Anything else is HTTP 404 `INVALID_LANGUAGE_PAIR`.
 
-- **Target** (`supertextCode`): the account's Supertext code for the language (Settings → Languages, normalized and validated with the SDK's `LanguageCodes`: `de_ch` → `de-CH`), else the default from `LANGUAGES` (ar-SA, bg-BG, cs-CZ, da-DK, de-DE, el-GR, en-US, es-ES, et-EE, fi-FI, fr-FR, hr-HR, hu-HU, it-IT, ja-JP, ko-KR, lt-LT, lv-LV, nl-NL, `no` → nb-NO, pl-PL, pt-PT, ro-RO, ru-RU, sk-SK, sl-SI, sr-RS, sv-SE, th-TH, tr-TR, uk-UA, vi-VN, zh-CN; the same table as the Shopify app).
-- **Source** (`supertextSource`): the bare language of the campaign language's Supertext code (`en`; Mailchimp's `no` → `nb`); empty lets Supertext detect it. The SDK also strips any region from the source and adds the default region to a bare target (an override `fr` is sent as `fr-FR`).
+**No guessing, no default regions.** Mailchimp's subscriber languages are two-letter codes (`LANGUAGE_CODES` in `src/translation/languages.ts`). Each account has its own **language mapping**, `Account.languageCodes` (Mailchimp code → Supertext code), entered per language on the settings page (*Supertext code*, with a datalist of `Languages.TARGETS`; a value is saved only if `Languages.matchTarget` finds it, in its exact form: `de_ch` → `de-CH`, `fr-BE` refused). One mapping serves both directions:
+
+- **Target** (`supertextTarget` = `Languages.target(code, mapping)`): the mapping, else an exact match of the Mailchimp code (`es`, `nl`; case and `_`/`-` ignored), else the SDK error `unsupported_language`. The job then fails that language with `unsupportedLanguage` (*has no Supertext code yet*, four languages) and sends nothing for it; the other languages go on.
+- **Source** (`supertextSource` = `Languages.source(code, mapping)`): the mapping's value in its source form (`en-US` → `en`), else the bare Supertext source (`en`), else `unsupported_language` (the whole job fails, nothing sent). Empty lets Supertext detect it.
+- **Politeness:** the account's form of address is sent only where `Languages.supportsPoliteness(target)` is true; elsewhere nothing is sent (Supertext would answer `FEATURE_ERROR`, `unsupported_feature` → `unsupportedFeature`).
+- The settings page shows per language what is sent (*Sent to Supertext* / *Not set*), warns about ticked languages without a code and an unsupported campaign language, and names the ticked languages without politeness; the Translate page shows *No Supertext code yet* next to such a language.
 - Supertext would accept `en` → `en-GB`, but a draft in the campaign's own Mailchimp language would go to the same subscribers, so the campaign language is left out of the targets.
 
-The stand-in (`tests/standin/supertext.ts`) rejects targets without region like the live API.
+The stand-in (`tests/standin/supertext.ts`) accepts only `Languages.TARGETS` (else 404 `INVALID_LANGUAGE_PAIR`) and refuses politeness where the target has none, like the live API.
+
+## Commando Center
+
+Version reports, the automatic API key check and the key status go to the Supertext Commando Center ([Commando-Center-Supertext-Translation](https://github.com/Supertext/Commando-Center-Supertext-Translation) → `docs/DEVELOPER.md` → *Report protocol*) through the SDK's `InstallationReporter`; the app never builds a report itself. `src/reporting.ts` is the glue:
+
+- **One installation per connected Mailchimp account.** Site URL `https://admin.mailchimp.com/account/<account ID>` (`siteUrl()`: Mailchimp accounts have no website, the center keeps paths but drops queries, and the account ID is stable and not personal), plugin `Mailchimp-Supertext-Translation` with the version from `package.json` (`src/version.ts`), system `Mailchimp` without a version, runtime Node.js and the SDK version (the SDK's defaults). A hosted app: **no ping endpoint and no `callbackUrl`**.
+- **State:** the SDK's `ReporterState` JSON in `Account.reporter` (the `data` JSONB of `accounts`). Only `Store.saveReporterState()` writes it (`jsonb_set`), and `saveAccount()` keeps the stored one, so a settings save never puts back an older state. Calls are serialized per account.
+- **When:** `afterSettingsSaved` after `POST /settings` (awaited; the key check is shown under the API key with its time and the center's messages, `keyCheck.*` in four languages, links in a new tab); `onRequest` in the background on `GET /`, `GET /settings` and `POST /api/jobs` (not on the folder poller); `authenticationFailed` when a translation gets 401/403 (`JobDeps.onAuthenticationFailed`); `testConnection` on *Test connection* with the saved key (a typed, unsaved key is only checked with `checkApiKey()`, nothing stored or reported).
+- **Setting:** `Account.versionReports` (*Send version information to Supertext*, on by default), combined by the SDK's `reportsEnabled()` with `SUPERTEXT_VERSION_REPORTS` (`0` turns it off for every account and disables the checkbox). Off: nothing is sent; the key check still runs.
+- **Never breaks anything:** `Reporting.run()` catches everything (the SDK already never throws; store errors are logged), reports time out after 3 s and wait an hour after a failure. The key is never logged or sent; the SDK keeps only its SHA-256 fingerprint to notice a changed `SUPERTEXT_API_KEY`.
+- **Tests never reach the live center:** `SUPERTEXT_REPORT_URL` points at the stand-in (`tests/standin/supertext.ts` answers `POST /report` and records `reports`) in `tests/helpers.ts`, `scripts/smoke.sh` and the screenshot script; `tests/reporting.test.ts` covers the glue, `tests/flow.test.ts` → *Commando Center* the events.
 
 ## Local development
 
@@ -134,7 +149,7 @@ An API key (Mailchimp → Profile → Extras → API keys) works like an OAuth t
 ## Tests
 
 ```bash
-npm test             # Vitest: email HTML and merge tags, segments, sessions, the app's SDK layer, i18n, full flow
+npm test             # Vitest: email HTML and merge tags, segments, sessions, the app's SDK layer, languages, reporting, i18n, full flow
 npm run typecheck
 npm run build
 bash scripts/smoke.sh   # after build: the built app against the stand-ins
@@ -177,6 +192,8 @@ The service **Mailchimp** in the Railway project *supertext-cms-demos* builds th
 | `APP_ENCRYPTION_KEY` | random secret for stored tokens and keys; optional (falls back to the client secret) |
 | `SUPERTEXT_API_KEY` | optional default key (the demo account) |
 | `FOLDER_POLL_SECONDS` | optional, default 60 |
+| `SUPERTEXT_VERSION_REPORTS` | optional; `0` turns the version reports off for every account |
+| `SUPERTEXT_REPORT_URL` | optional; tests and stand-ins only (default: the live Commando Center) |
 
 Never commit these values.
 
