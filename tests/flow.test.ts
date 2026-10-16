@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SDK_VERSION } from 'supertext-sdk';
 import { services } from '../src/app.js';
 import { pollAccount } from '../src/translation/folders.js';
 import { ACCOUNT_ID, setup, STANDARD_SETTINGS } from './helpers.js';
@@ -404,7 +405,7 @@ describe('Commando Center', () => {
       runtime: { name: 'Node.js' },
       api_key_configured: true,
       api_key_check: { status: 'ok' },
-      sdk_version: '0.2.1',
+      sdk_version: SDK_VERSION,
     });
     expect(installed).not.toHaveProperty('callback');
     expect(saved).toMatchObject({ event: 'settings_saved' });

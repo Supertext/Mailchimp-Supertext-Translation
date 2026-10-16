@@ -1,22 +1,26 @@
 /**
  * Version reports to the Supertext Commando Center and the automatic API key check
  * (Commando-Center-Supertext-Translation → docs/DEVELOPER.md → Report protocol). The protocol is
- * the SDK's (`InstallationReporter`); this file only gives it what the app knows: the connected
- * Mailchimp account (one "installation" per account), the app's version, and a place to keep the
- * reporter's state (the account's `reporter` field in the store).
+ * Supertext Plugin Health's (`InstallationReporter`, `supertext-plugin-health` from
+ * vendor/supertext-plugin-health); the key check is the Supertext SDK's (`checkApiKey()`). This
+ * file only gives them what the app knows: the connected Mailchimp account (one "installation"
+ * per account), the app's version, and a place to keep the reporter's state (the account's
+ * `reporter` field in the store).
  *
  * A hosted app has no server on the customer's side, so there is no ping endpoint and no
  * callback URL. Nothing here ever throws into a request or a translation, and the API key is
- * never logged or sent (the SDK keeps only its fingerprint).
+ * never logged or sent (only its fingerprint is kept).
  */
 import {
   InstallationReporter,
   reportsEnabled,
-  type ApiKeyCheck,
   type FetchLike,
+  type KeyChecker,
   type ReporterOptions,
   type ReporterResult,
-} from 'supertext-sdk/v1';
+} from 'supertext-plugin-health';
+import { SDK_VERSION } from 'supertext-sdk';
+import { apiKeyFingerprint, SupertextClient as SdkClient, type ApiKeyCheck, type SupertextClientOptions } from 'supertext-sdk/v1';
 import type { Config } from './config.js';
 import type { Account, Store } from './store/store.js';
 import { USER_AGENT } from './supertext/client.js';
@@ -41,11 +45,17 @@ export interface ReportingDeps {
   store: Store;
   /** HTTP for the key check against Supertext and for the report (tests route both to stand-ins). */
   fetch?: typeof fetch;
-  /** Tests: more options for the SDK reporter (clock, …). */
+  /** Tests: more options for the Plugin Health reporter (clock, …). */
   reporterOverrides?: Partial<ReporterOptions>;
   /** Called with every background task (tests wait on them). */
   onTask?: (done: Promise<unknown>) => void;
 }
+
+/**
+ * A reporter result with the key check typed as the SDK's (the checks come from the SDK's
+ * `checkApiKey()` or are `invalid` after a 401/403, so the status is one of the SDK's).
+ */
+export type ReportResult = Omit<ReporterResult, 'check'> & { check: ApiKeyCheck | null };
 
 export class Reporting {
   /** Per account, so two requests of the same account don't report twice. */
@@ -77,23 +87,31 @@ export class Reporting {
       plugin: { name: PLUGIN_NAME, version: VERSION || '0.0.0' },
       // Mailchimp is a hosted service without a version number of its own.
       system: { name: 'Mailchimp', version: null },
+      sdkVersion: SDK_VERSION,
       callbackUrl: null,
+      keyChecker: this.keyChecker(),
       ...(config.reportUrl ? { reportUrl: config.reportUrl } : {}),
-      clientOptions: {
-        baseUrl: config.supertextEndpoint || undefined,
-        userAgent: USER_AGENT,
-        ...(this.deps.fetch ? { fetch: this.deps.fetch as FetchLike } : {}),
-      },
       ...(this.deps.fetch ? { fetch: this.deps.fetch as FetchLike } : {}),
       ...this.deps.reporterOverrides,
     });
+  }
+
+  /** The SDK's key check (`GET features`) against the configured endpoint, with the app's User-Agent. */
+  keyChecker(): KeyChecker {
+    const { config } = this.deps;
+    const options: SupertextClientOptions = {
+      baseUrl: config.supertextEndpoint || undefined,
+      userAgent: USER_AGENT,
+      ...(this.deps.fetch ? { fetch: this.deps.fetch as SupertextClientOptions['fetch'] } : {}),
+    };
+    return { check: (key) => new SdkClient(key, options).checkApiKey(), fingerprint: apiKeyFingerprint };
   }
 
   /**
    * Runs one reporter action with the account's stored state and stores the new state.
    * Never throws; null when something went wrong (logged without the key).
    */
-  run(account: Account, action: ReportAction, httpStatus?: number): Promise<ReporterResult | null> {
+  run(account: Account, action: ReportAction, httpStatus?: number): Promise<ReportResult | null> {
     const previous = this.queues.get(account.accountId) ?? Promise.resolve();
     const task = previous.then(async () => {
       try {
@@ -114,7 +132,7 @@ export class Reporting {
         if (result.event) {
           console.log(`Supertext: version report "${result.event}" for account ${account.accountId}: ${result.sent ? 'sent' : 'not sent'}`);
         }
-        return result;
+        return result as ReportResult;
       } catch (error) {
         console.warn(`Supertext: version report skipped (${error instanceof Error ? error.message : String(error)})`);
         return null;
@@ -129,7 +147,7 @@ export class Reporting {
   }
 
   /** For page requests: in the background, so nobody waits for Supertext or the center. */
-  inBackground(account: Account, action: ReportAction, httpStatus?: number): Promise<ReporterResult | null> {
+  inBackground(account: Account, action: ReportAction, httpStatus?: number): Promise<ReportResult | null> {
     const task = this.run(account, action, httpStatus);
     this.deps.onTask?.(task);
     return task;
@@ -137,6 +155,6 @@ export class Reporting {
 
   /** The latest stored key check (settings page). */
   static lastCheck(account: Pick<Account, 'reporter'>): ApiKeyCheck | null {
-    return account.reporter?.keyCheck ?? null;
+    return (account.reporter?.keyCheck as ApiKeyCheck | undefined) ?? null;
   }
 }

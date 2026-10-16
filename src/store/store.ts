@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { ErrorInfo } from '../i18n/error.js';
 import type { Politeness } from '../supertext/client.js';
-import type { ReporterState } from 'supertext-sdk/v1';
+import type { ReporterState } from 'supertext-plugin-health';
 
 /** What a Supertext folder starts: one language, or all of the account's languages. */
 export type FolderTarget = 'all' | string;
@@ -42,7 +42,7 @@ export interface Account {
   folders: Record<string, FolderTarget>;
   /** "Send version information to Supertext" (SUPERTEXT_VERSION_REPORTS=0 turns it off for all accounts). */
   versionReports: boolean;
-  /** The Commando Center reporter's state (the SDK's ReporterState JSON); see reporting.ts. */
+  /** The Commando Center reporter's state (Plugin Health's ReporterState JSON, as the SDK 0.2 reporter stored it); see reporting.ts. */
   reporter?: ReporterState | null;
   connectedAt: string;
 }

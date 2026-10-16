@@ -23,6 +23,7 @@
     "hono": "^4.13.13",
     "node-html-parser": "^9.0.4",
     "pg": "^8.23.1",
+    "supertext-plugin-health": "file:vendor/supertext-plugin-health",
     "supertext-sdk": "file:vendor/supertext-sdk"
   },
   "devDependencies": {

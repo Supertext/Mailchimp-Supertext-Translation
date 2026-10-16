@@ -4,6 +4,7 @@ All notable changes to Supertext Translation for Mailchimp.
 
 ## Unreleased
 
+- Changed: version reports and the API key check result now use Supertext Plugin Health 0.1.0 (bundled in `vendor/supertext-plugin-health`); Supertext SDK updated to 0.3.0 (commit `f7bd414`). No change for accounts: settings and stored state stay as they are.
 - Changed: Supertext is reached through the Supertext SDK for TypeScript (bundled from `vendor/supertext-sdk/` until it is on npm) instead of the app's own client. Same protocol; the app now identifies itself in the User-Agent, and the API key is masked wherever Supertext's answer echoes it.
 - Changed: Supertext SDK 0.2.1 (API in the `v1` namespace).
 - Changed: no more guessed language codes. Each language is sent with the Supertext code you set under Settings → Languages (picked from Supertext's list; one mapping for the target and the campaign language), else its Mailchimp code if Supertext uses it as it is (`es`, `nl`). A language without one isn't sent and fails with *has no Supertext code yet* (`unsupported_language`); there are no default regions any more (`de` used to be sent as `de-DE`). The settings page shows what each language is sent as and warns about ticked languages without a code; the Translate page marks them.

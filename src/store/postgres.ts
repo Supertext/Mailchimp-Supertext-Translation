@@ -1,5 +1,5 @@
 import pg from 'pg';
-import type { ReporterState } from 'supertext-sdk/v1';
+import type { ReporterState } from 'supertext-plugin-health';
 import type { ErrorInfo } from '../i18n/error.js';
 import {
   defaultAccount,

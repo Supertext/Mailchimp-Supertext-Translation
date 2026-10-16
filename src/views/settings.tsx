@@ -1,6 +1,7 @@
 import type { ApiKeyCheck } from 'supertext-sdk/v1';
 import type { Translator } from '../i18n/index.js';
 import type { Account } from '../store/store.js';
+import { Reporting } from '../reporting.js';
 import { folderName } from '../translation/folders.js';
 import {
   isLanguage,
@@ -87,7 +88,7 @@ export function SettingsPage(props: SettingsPageProps) {
     return target && !supportsPoliteness(target);
   });
   const names = (codes: string[]) => codes.map((code) => languageName(code, t.locale)).join(', ');
-  const check = account.reporter?.keyCheck ?? null;
+  const check = Reporting.lastCheck(account);
 
   return (
     <Layout ctx={ctx} title={heading}>

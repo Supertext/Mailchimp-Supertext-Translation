@@ -4,7 +4,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-# The Supertext SDK is a file: dependency (see docs/DEVELOPER.md → Supertext SDK).
+# The Supertext SDK and Supertext Plugin Health are file: dependencies (see docs/DEVELOPER.md → Supertext SDK).
 COPY vendor ./vendor
 RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci && npm cache clean --force
 
