@@ -244,19 +244,36 @@ describe('translating from the app', () => {
   it('sends nothing for a language without a Supertext code and goes on with the others', async () => {
     const env = setup();
     await env.connect();
-    // "fr-Latn" isn't a Supertext code: refused when saving, so French has no code ("fr" alone isn't one either).
-    await env.saveSettings([...STANDARD_SETTINGS.filter(([name]) => name !== 'code:fr'), ['code:fr', 'fr-Latn']]);
+    // Norwegian ("no") has no exact match and no default (Supertext's code is nb), so it needs a mapping.
+    await env.saveSettings([...STANDARD_SETTINGS, ['target', 'no']]);
     const settings = await (await env.request('/settings')).text();
-    expect(settings).toContain('These languages have no Supertext code yet');
-    const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de', 'fr'] })).json();
+    expect(settings).toContain('These languages have no Supertext language yet');
+    expect(settings).toMatch(/<select name="code:no"[^>]*><option value="" selected="">— choose —<\/option>/);
+    const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de', 'no'] })).json();
     await env.settle();
     const job = (await env.store.getJob(ACCOUNT_ID, id))!;
     expect(job.status).toBe('done');
     expect(job.items.map((item) => [item.language, item.state, item.error?.code])).toEqual([
       ['de', 'created', undefined],
-      ['fr', 'failed', 'unsupportedLanguage'],
+      ['no', 'failed', 'unsupportedLanguage'],
     ]);
     expect(env.supertext.documents.map((d) => d.target)).toEqual(['de-CH']);
+  });
+
+  it('uses the SDK default for a language nobody mapped and preselects it', async () => {
+    const env = setup();
+    await env.connect();
+    await env.saveSettings([...STANDARD_SETTINGS.filter(([name]) => name !== 'code:fr')]);
+    const settings = await (await env.request('/settings')).text();
+    expect(settings).not.toContain('These languages have no Supertext language yet');
+    // Saved value, suggestion, exact match.
+    expect(settings).toMatch(/<select name="code:de"[^>]*>(?:(?!<\/select>).)*<option value="de-CH" selected="">/s);
+    expect(settings).toMatch(/<select name="code:fr"[^>]*>(?:(?!<\/select>).)*<option value="fr-FR" selected="">/s);
+    expect(settings).toMatch(/<select name="code:es"[^>]*>(?:(?!<\/select>).)*<option value="es" selected="">/s);
+    const { id } = await (await env.api('POST', '/api/jobs', { campaignId: 'c-autumn', languages: ['de', 'fr'] })).json();
+    await env.settle();
+    expect(env.supertext.documents.map((d) => d.target).sort()).toEqual(['de-CH', 'fr-FR']);
+    expect((await env.store.getJob(ACCOUNT_ID, id))!.status).toBe('done');
   });
 
   it('translates a language whose Mailchimp code is a Supertext code as it is, and sends no politeness it lacks', async () => {

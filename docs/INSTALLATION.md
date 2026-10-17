@@ -40,9 +40,9 @@ Everyone in your team who connects the same Mailchimp account shares its setting
 
 ## 3. Settings
 
-Enter the API key, choose your languages, give each one its Supertext code and click **Save**. Saving checks the API key automatically (free of charge, nothing is translated) and shows the result under the key: *API key checked: the connection to Supertext works.* means everything is in place. **Test connection** runs the same check again, also for a key you have typed but not saved yet.
+Enter the API key, choose your languages, check the Supertext language in each one's box and click **Save**. Saving checks the API key automatically (free of charge, nothing is translated) and shows the result under the key: *API key checked: the connection to Supertext works.* means everything is in place. **Test connection** runs the same check again, also for a key you have typed but not saved yet.
 
-<img src="images/settings.png" alt="Supertext settings: the saved API key with links to create a Supertext account and generate the key, the API key check result and Test connection, both saying the connection to Supertext works, the language of the campaigns (English), French, German and Italian ticked with the Supertext codes fr-CH, de-CH and it-CH and the code sent to Supertext for each language (Bulgarian bg as it is, Arabic and Chinese not set), Start translations from: Mailchimp folders and The Supertext app, Send the original only to subscribers without a translated language, the form of address, Send version information to Supertext, the connected account and the version 0.1.0" width="720">
+<img src="images/settings.png" alt="Supertext settings: the saved API key with links to create a Supertext account and generate the key, the API key check result and Test connection, both saying the connection to Supertext works, the language of the campaigns (English), French, German and Italian ticked with the Supertext languages Swiss French (fr-CH), Swiss High German (de-CH) and Italian (Switzerland) (it-CH) chosen in their combo boxes, the unticked Arabic box showing — choose —, Bulgarian preselected as Bulgarian (bg) and Chinese as Simplified Chinese (zh-Hans), Start translations from: Mailchimp folders and The Supertext app, Send the original only to subscribers without a translated language, the form of address, Send version information to Supertext, the connected account and the version 0.1.0" width="720">
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
@@ -50,12 +50,28 @@ Enter the API key, choose your languages, give each one its Supertext code and c
 | Test connection | – | Checks the key (entered or saved) with Supertext, without translating anything. The result of the saved key's check is shown under the key with its time (UTC). |
 | Language of your campaigns | English | The language you write your campaigns in. *Let Supertext detect it* works too, but then the app can't leave that language out of the targets. |
 | Translate into | none | The languages to translate into. Each one gets a draft per campaign and, with the folder trigger, its own Supertext folder. |
-| Supertext code | empty | The language mapping: the code Supertext uses for this Mailchimp language, picked from Supertext's list (the field suggests them). German, English, French, Italian and Portuguese need a region (`de-CH`, `de-DE`, `de-AT`, `en-US`, `en-GB`, `fr-CH`, `fr-FR`, `it-CH`, `it-IT`, `pt-BR`, `pt-PT`), Chinese and Serbian a script (`zh-Hans`, `zh-Hant`, `sr-Latn`, `sr-Cyrl`), Norwegian is `nb`; the others are the bare language (`es`, `nl`, `sl` …). Empty: the Mailchimp code is used only if it is a Supertext code as it is (`es`, `nl`); otherwise the language isn't translated (*has no Supertext code yet*). Nothing is guessed: there are no default regions. The column *Sent to Supertext* shows what each language is sent as, or *Not set*, and the page warns about ticked languages without a code. A code Supertext doesn't offer isn't saved (*Saved, except these codes …*). The same mapping gives the campaign language (`en-US` is sent as the source `en`). |
+| Supertext code | Supertext's suggestion | The language mapping: a combo box per Mailchimp language with Supertext's languages as "Name (code)". It starts with Supertext's suggestion: the same code where Mailchimp's is one (`es`, `nl`, `bg` …), else the obvious default (see the table below); a language with neither (Norwegian, Arabic …) shows *— choose —* and isn't translated until you pick one (*has no Supertext language yet*). Change it where you want another variant, e.g. *Swiss High German (de-CH)* instead of *German (Germany) (de-DE)*. Saving stores the chosen codes; the page warns about ticked languages that still show *— choose —*. The same mapping gives the campaign language (`en-US` is sent as the source `en`). |
 | Start translations from: Mailchimp folders | On | The app creates the folders *Supertext → All languages* and one per language (*Supertext → German* …) and checks them every minute. Turning it off deletes the empty Supertext folders. |
 | Start translations from: The Supertext app | On | The *Translate* page offers the campaigns. At least one of the two stays on. |
 | Send the original only to subscribers without a translated language | On | After translating, the original's audience gets "language is not German, not French …" added, so nobody receives two versions. Off: the original keeps its audience. |
 | Form of address | Let Supertext decide | *Formal* (German "Sie", French "vous") or *Informal* ("du", "tu"). Sent only for languages where Supertext offers it; the page names the ticked languages that don't have it (English, Swiss German, Romansh, Albanian, Serbian), which are translated with Supertext's default. |
 | Send version information to Supertext | On | See *Version information* below. |
+
+Defaults when you don't change the box (Supertext's SDK, `Languages.defaultTarget`):
+
+| Mailchimp language | Sent as |
+| --- | --- |
+| German `de` | `de-DE` |
+| English `en` | `en-US` |
+| French `fr` | `fr-FR` |
+| Italian `it` | `it-IT` |
+| Portuguese `pt` | `pt-PT` |
+| Chinese `zh` | `zh-Hans` |
+| Serbian `sr` | `sr-Latn` |
+| A code Supertext uses as it is (`es`, `nl`, `bg`, `pl` …) | the same code |
+| Anything else (`no` → choose `nb`, `ar`, …) | nothing: choose one |
+
+There is no environment variable for the mapping: it is set per Mailchimp account on this page. Settings saved with an earlier version keep their codes; the boxes show them.
 
 The folder names are written in the language of the app's interface at the moment you save the settings (top right: EN, DE, FR, IT).
 
@@ -98,11 +114,11 @@ Nothing to do: the app runs on Supertext's servers and is updated there. The set
 | *The API key couldn't be checked: Supertext answered with an error (…)* | Supertext answered unexpectedly (the HTTP status is shown); the settings are saved. Try again later and contact Supertext support if it stays. |
 | *Authentication failed* | The key is wrong or revoked. Check it with **Test connection**; if needed, generate a new one at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (Admin role required). |
 | *Choose your languages* | No languages are ticked under Settings → Languages. |
-| *These languages have no Supertext code yet …* / *The language “de” has no Supertext code yet, so nothing was sent* | Enter the language's Supertext code under Settings → Languages, for example `de-CH` for German (`unsupported_language`: nothing is sent to Supertext for that language until it has one). |
-| *Supertext doesn't know … as the language of your campaigns* | Enter the campaign language's Supertext code (e.g. `en-US` for English, `nb` for Norwegian) or choose *Let Supertext detect it*. |
-| *Saved, except these codes, which aren't Supertext codes …* | Pick a code from the field's list (e.g. `de-CH`, `es`, `zh-Hans`). |
+| *These languages have no Supertext language yet …* / *The language “no” has no Supertext language yet, so nothing was sent* | Choose the language's Supertext language in its box under Settings → Languages → *Supertext code*, for example *Norwegian Bokmål (nb)* (`unsupported_language`: nothing is sent to Supertext for that language until it has one). |
+| *Supertext doesn't know … as the language of your campaigns* | Choose the campaign language's Supertext language in its box under Languages (e.g. *Norwegian Bokmål (nb)* for Norwegian) or choose *Let Supertext detect it*. |
+| *Saved, except these codes, which aren't Supertext codes …* | Choose a language from the box's list (e.g. *Swiss High German (de-CH)*). |
 | *Supertext offers no formal or informal address for this language* | Set the form of address to *Let Supertext decide*. |
-| *Supertext doesn't translate into …* | Check the language's Supertext code under Settings → Languages. |
+| *Supertext doesn't translate into …* | Check the language's box under Settings → Languages → *Supertext code*. |
 | *Saved, but the Supertext folders could not be updated in Mailchimp* | Mailchimp refused to create or rename a folder. Save again later; the reason is shown. |
 | *Mailchimp returned no content for this campaign* | Campaigns made with Mailchimp's new email builder may not be readable through Mailchimp's API yet. Use the classic builder or code your own. |
 | *Only regular and plain-text campaigns can be translated* | A/B tests (multivariate) and RSS campaigns aren't supported. |
