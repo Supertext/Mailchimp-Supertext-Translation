@@ -34,7 +34,8 @@ scripts/vendor-sdk.sh     updates vendor/supertext-sdk
 scripts/vendor-plugin-health.sh  updates vendor/supertext-plugin-health
 vendor/supertext-sdk/     the Supertext SDK (TypeScript, built), the app's `supertext-sdk` dependency; see *Supertext SDK*
 vendor/supertext-plugin-health/  Supertext Plugin Health (TypeScript, built), the app's `supertext-plugin-health` dependency; see *Supertext Plugin Health*
-tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-ins, sample account); docs/screenshots.ts
+tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-ins, sample account); docs/screenshots.ts;
+                          e2e/ (the app against the real Supertext API, see *End-to-end tests*)
 ```
 
 ## How it fits into Mailchimp
@@ -180,9 +181,50 @@ npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 
 `tests/docs/screenshots.ts` starts the stand-ins and the app in-process, connects through the stand-in's OAuth and captures the app's pages (connect, settings, translate page, results, list afterwards, update warning, German UI). Regenerate them in the same commit as any UI change they show. Chromium: Playwright's own (`npx playwright install chromium`) or `CHROME=/path/to/chrome`. Screenshots of Mailchimp's own screens (the Supertext folders, a draft) follow from the demo account.
 
+## End-to-end tests
+
+`.github/workflows/e2e.yml` checks the app against the **real Supertext API**. There is no Mailchimp account in CI (Mailchimp accounts can't be created from outside, and a real one would need its OAuth app and a user who signs in), so Mailchimp is the stand-in (`tests/standin/mailchimp.ts` with the sample account of `seed.ts`), as in the smoke test, and the checks read what the stand-in Mailchimp received.
+
+What runs:
+
+1. The app's `Dockerfile` is built (as on Railway; layers cached between runs) and started with `SUPERTEXT_API_KEY` from the GitHub secret, `MAILCHIMP_LOGIN_BASE` pointing at the stand-in Mailchimp (`npx tsx tests/standin/server.ts`, port 8766), `SUPERTEXT_VERSION_REPORTS=0` (CI runs aren't installations for the Commando Center) and `FOLDER_POLL_SECONDS=0`. Session and encryption secrets are random per run and masked in the log.
+2. `tests/e2e/features.mjs` asks the real API's `GET features` (no cost, no app or SDK code) whether it offers every pair the test translates: `en` → `de-CH`, `fr-CH`, `it-CH` (`E2E_SOURCE`, `E2E_TARGETS`).
+3. `tests/e2e/live.ts` (Playwright and the repo's own dev dependencies) uses the app's pages like an editor: *Connect Mailchimp* (the stand-in approves at once), Settings → English, German `de-CH`, French `fr-CH`, Italian `it-CH`, *Test connection* (the real key check; the key itself is never typed into the page, the app uses `SUPERTEXT_API_KEY`), then on the Translate page every sample campaign (the template campaign, the HTML campaign and the sent one) into all three languages. It then checks in the stand-in Mailchimp:
+   - exactly one draft per campaign and language (`<title> · DE`), status *save* (nothing sent), the originals' content untouched;
+   - subject line, preview text and every text block (headings, paragraphs, list items, buttons, footer) filled, and at least 80 % of them changed (single words may stay the same; unchanged ones are printed as `note`);
+   - merge tags (`*|FNAME|*`, `*|UNSUB|*`, `*|ARCHIVE|*` …), links, bold, italics, list items, images and the template's `mc:edit` sections kept (counted);
+   - no protocol leftovers (`data-st-id`, `data-st-ph`, `st-ph-`, `data-mc`, `data-st-a`);
+   - the text is in the target language (common-word count), `de-CH` without "ß";
+   - no error in the app's job panel or form;
+   - translating the first campaign again keeps the drafts (*0 created, 0 updated, 3 kept*), and with *Update existing drafts* updates the same drafts in place (*3 updated*, same campaign IDs, no new campaigns), checked again.
+4. The docs screenshots (`npm run docs:screenshots`) against the stand-in Mailchimp and the stand-in Supertext API, as described under *Screenshots*. If the images differ from `docs/images/`, they are uploaded, and on `main` a second job opens or updates the pull request "Docs: regenerate screenshots" from the branch `automation/docs-screenshots`. The key check's time on the settings image is fixed in the script, so the images only change when the UI does.
+
+Triggers: weekly (Mondays 06:07 UTC), pushes to `main` that change the app, its tests or the workflow, pull requests that change `tests/e2e/` or the workflow, and by hand (*Actions → E2E → Run workflow*).
+
+The secret `SUPERTEXT_API_KEY` (repository secret, set by Remy) is the only place the key lives. Without it, the real-API steps are skipped with a warning and only the screenshots run. Every run translates 3 campaigns × 3 languages plus one update into 3 languages with that key.
+
+Not covered without a real Mailchimp account: Mailchimp's real OAuth, how the real Marketing API stores template sections and drafts, and the folder trigger's real behaviour; check those with `npm run mailchimp:probe` and on the demo account (see *Demo*).
+
+Locally (no Docker needed; your own key, never a shared one):
+
+```bash
+npm run build
+npx tsx tests/standin/server.ts &
+MAILCHIMP_CLIENT_ID=e2e MAILCHIMP_CLIENT_SECRET=e2e MAILCHIMP_LOGIN_BASE=http://127.0.0.1:8766 \
+SUPERTEXT_API_KEY=<your key> SUPERTEXT_VERSION_REPORTS=0 FOLDER_POLL_SECONDS=0 PORT=8081 node dist/server.js &
+SUPERTEXT_API_KEY=<your key> E2E_SOURCE=en E2E_TARGETS=de-CH,fr-CH,it-CH node tests/e2e/features.mjs
+npx tsx tests/e2e/live.ts     # APP_URL, MAILCHIMP_URL default to :8081 and :8766
+```
+
+The test needs a fresh stand-in Mailchimp (it keeps its campaigns in memory; restart it between runs). Without `SUPERTEXT_API_KEY`, add `SUPERTEXT_API_ENDPOINT=http://127.0.0.1:8765/v1/` to run it against the stand-in Supertext API instead. The output has one `ok`/`FAIL`/`note` line per check; any `FAIL` makes it exit with 1.
+
+When a run fails, the artifact **e2e-debug** holds screenshots of the app after every translation (`artifacts/`), the app container's log and the stand-in Mailchimp's log (7 days). HTTP 429 (`RATE_LIMIT_EXCEEDED`) usually means other repos' runs used the shared key at the same time: re-run the failed job.
+
 ## CI
 
 `.github/workflows/ci.yml`: typecheck, tests, build, then `scripts/smoke.sh`: the built app against the stand-ins (OAuth with a cookie jar, settings, a job translating into two languages, a campaign moved into *Supertext → German* and translated by the poller and moved back, an API call without a session refused).
+
+`.github/workflows/e2e.yml` (weekly, on pushes to `main` that touch the app, and on pull requests that change the E2E test): the app's Docker image against the real Supertext API and the stand-in Mailchimp, then the docs screenshots; see *End-to-end tests*.
 
 ## Code quality and security checks
 
