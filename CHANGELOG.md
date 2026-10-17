@@ -4,6 +4,7 @@ All notable changes to Supertext Translation for Mailchimp.
 
 ## Unreleased
 
+- Changed: Supertext's look: the Supertext logo in a deep-green header, Supertext's colours, pill buttons and the Inter font (bundled, no font from elsewhere), the Supertext favicon, and pages that fit a phone screen (the campaign table scrolls inside its card; Save stays at the bottom of the settings).
 - Changed: version reports and the API key check result now use Supertext Plugin Health 0.1.0 (bundled in `vendor/supertext-plugin-health`); Supertext SDK updated to 0.3.0 (commit `f7bd414`). No change for accounts: settings and stored state stay as they are.
 - Changed: Supertext is reached through the Supertext SDK for TypeScript (bundled from `vendor/supertext-sdk/` until it is on npm) instead of the app's own client. Same protocol; the app now identifies itself in the User-Agent, and the API key is masked wherever Supertext's answer echoes it.
 - Changed: Supertext SDK 0.2.1 (API in the `v1` namespace).
