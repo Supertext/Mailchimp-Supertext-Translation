@@ -11,6 +11,7 @@ Translate your Mailchimp campaigns with [Supertext](https://www.supertext.com) A
 - **Drafts per language**, in the original's folder, each with a language segment; the original can go only to the subscribers without a translation.
 - Keeps layout, images, links and Mailchimp **merge tags** (`*|FNAME|*`, `*|UNSUB|*`); template campaigns stay editable in Mailchimp's editor.
 - Existing drafts are kept unless you choose to update them.
+- Export for translation (XLIFF 1.2 or HTML) for translators, translation tools or Supertext's web app, and import of the translated file as the language's draft.
 - The app's pages are in English, German, French and Italian.
 
 **Needs:** a Mailchimp account and a Supertext account with an API key. No Supertext account yet? [Create one at supertext.com](https://www.supertext.com/person/en/account/signin). Generate your API key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role).

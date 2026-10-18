@@ -70,6 +70,29 @@ export const en = {
   'state.none': 'No draft',
   'state.draft': 'Draft',
 
+  // Translation files (export for translation, import translation)
+  'files.export.heading': 'Export for translation',
+  'files.export.text': "Download the campaign chosen above as a file for a translator, a translation tool or Supertext's web app, and import the translated file below. It holds the subject line, the preview text and the content.",
+  'files.export.selectOne': 'Choose a campaign above to export it.',
+  'files.format': 'File format',
+  'files.format.xliff': 'XLIFF 1.2 (for translation tools)',
+  'files.format.html': 'HTML (one language per file)',
+  'files.languages': 'Target languages',
+  'files.download': 'Download file',
+  'files.import.heading': 'Import translation',
+  'files.import.text': 'Upload a file exported here and translated. Each language becomes a draft in Mailchimp, like a translation by Supertext.',
+  'files.file': 'Translated file (XLIFF or HTML)',
+  'files.includeChanged': 'Also import texts whose source changed since the export',
+  'files.import.submit': 'Import translation',
+  'files.importing': 'Importing…',
+  'files.summary.ok': 'Imported: {count}',
+  'files.summary.changed': 'Skipped, source changed since the export: {count}',
+  'files.summary.untranslated': 'Not translated in the file: {count}',
+  'files.summary.invalid': 'Formatting changed, not imported: {count}',
+  'files.summary.missing': 'Not in the file: {count}',
+  'files.summary.kept': "The language's draft exists and was kept. Tick “Update existing drafts” to replace it.",
+  'files.summary.originalKept': "Texts not imported keep the original's wording in the draft.",
+
   // Progress and results
   'job.heading': 'Translation',
   'job.running': 'Translating “{campaign}”… {completed} of {total}',
@@ -199,6 +222,17 @@ export const en = {
   'error.unsupportedLanguage': "The language “{code}” has no Supertext language yet, so nothing was sent. Ask your administrator to choose one in its box under Settings → Languages → Supertext code.",
   'error.unsupportedFeature': "Supertext offers no formal or informal address for this language. Set the form of address to “Let Supertext decide” under Settings → Translation.",
   'error.select': 'Select a campaign and at least one language.',
+  'error.nothingToTranslate': 'Nothing to translate.',
+  'error.fileInvalid': "This file isn't a valid XLIFF or HTML translation file.",
+  'error.fileMissingMetadata': "This file wasn't exported by the Supertext app, or its header was removed.",
+  'error.fileTooLarge': 'The file is too large (at most 10 MB).',
+  'error.fileOtherSystem': 'This file belongs to another system ({plugin}).',
+  'error.fileItemGone': 'The campaign this file was exported from no longer exists.',
+  'error.fileNoLanguage': 'The app has no language {language} under Settings → Languages.',
+  'error.fileSelectOne': 'Select a campaign to export.',
+  'error.fileSelectLanguage': 'Select at least one language.',
+  'error.fileHtmlOneLanguage': 'An HTML file holds exactly one language. Choose one language, or XLIFF.',
+  'error.fileChoose': 'Choose a file.',
 } as const;
 
 export type MessageKey = keyof typeof en;

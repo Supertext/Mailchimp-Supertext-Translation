@@ -56,6 +56,48 @@ Check the recipients in each draft before sending; you can change them in Mailch
 
 Open the draft in Mailchimp (the *Open in Mailchimp* link, or the campaign list), check subject line, preview text and content, send a test email and send or schedule it. Drafts made from a template stay editable in Mailchimp's editor. If Mailchimp didn't accept the template's sections, the result says *Saved as HTML*: you then edit that draft with Mailchimp's code editor.
 
+## Translation files: export for translation, import translation
+
+Instead of Supertext AI, you can have a campaign translated by someone else: a translator, a translation tool (Trados, memoQ, Phrase and other CAT tools) or Supertext's web app. The app exports the campaign's texts as a file and imports the translated file again; the result is the same draft per language as with Supertext AI. Both are on the **Translate** page, below the translate button. (The export needs the campaign list, so *Start translations from → The Supertext app* must be on in the settings; the import works either way.)
+
+**Export for translation**
+
+1. In the list, choose the campaign.
+2. Under **Export for translation**, choose the **File format**:
+   - **XLIFF 1.2 (for translation tools)**: the better choice for translators and translation tools. Formatting, links and merge tags show as tags they can move but not break or edit. One file can hold several languages.
+   - **HTML (one language per file)**: for Supertext's web app or anyone who translates HTML files. Tick one language.
+3. Tick the target languages. A language without a Supertext language is offered too: the file then names the Mailchimp code.
+4. Click **Download file**. The file is called like `mailchimp-<campaign ID>-fr-CH.html` (`mailchimp-<campaign ID>.xlf` for several languages).
+
+   ![Export for translation: File format HTML (one language per file) chosen; target language French (fr-CH) ticked, German and Italian not; the button Download file](images/export-for-translation.png)
+
+The file holds the subject line, the preview text and the email's texts, exactly what Supertext AI would translate (see *What is translated*). Send it to the translator or upload it to Supertext's web app. Translators must keep the file's structure: in an HTML file, leave the head (the `supertext:` lines), the `data-st-id` attributes and the empty `<span data-mc="…">` elements (the merge tags) alone.
+
+**Import translation**
+
+1. Under **Import translation**, choose the translated file (**Translated file (XLIFF or HTML)**, at most 10 MB).
+2. Leave **Also import texts whose source changed since the export** off unless you want translations of texts that were edited in the meantime (they then translate the old text).
+3. **Update existing drafts** works as for Supertext AI: off, a language that has a draft already is kept, and nothing from the file is written for it.
+4. Click **Import translation**. Each language becomes a draft next to the original, with its language segment, exactly like a translation by Supertext (and the original's audience is limited the same way, if that setting is on).
+
+The app then shows a summary per language, with a link to the draft:
+
+![Import translation: the file mailchimp-c-advent-fr-CH.html chosen; Advent calendar offer · French: Imported: 9, with the link New draft](images/import-summary.png)
+
+| Line | Meaning |
+| --- | --- |
+| *Imported: 9* | Texts written to the draft. |
+| *Skipped, source changed since the export: 1* | The original text was edited after the export, so the translation may be out of date. Import again with *Also import texts whose source changed since the export* (and *Update existing drafts*) to use it anyway, or export again. |
+| *Not translated in the file: 1* | The file has no translation for it (XLIFF only). |
+| *Formatting changed, not imported: 1* | The translation adds formatting or links the original doesn't have, or lost a merge tag (`*|FNAME|*` would reach subscribers broken). Fix it in the file and import again. |
+| *Not in the file: 1* | The text was added to the campaign after the export. |
+| *Texts not imported keep the original's wording in the draft.* | The draft is always a complete email: what wasn't imported stays in the original language there. |
+| *The language's draft exists and was kept …* | Tick *Update existing drafts* to replace it. |
+
+An HTML file can't mark a text as untranslated: imported unchanged, it writes the original text into the draft.
+
+Messages: *This file isn't a valid XLIFF or HTML translation file* (damaged, or another kind of file), *This file wasn't exported by the Supertext app, or its header was removed* (the metadata is missing), *This file belongs to another system* (exported from another Supertext plugin), *The campaign this file was exported from no longer exists*, *The app has no language … under Settings → Languages* (the language was removed since), *The file is too large (at most 10 MB)*, *Nothing to translate*.
+
 ## What is translated
 
 | | |

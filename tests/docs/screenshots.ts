@@ -9,7 +9,7 @@
  */
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { chromium, type Locator, type Page } from 'playwright';
 import { createApp } from '../../src/app.js';
@@ -100,6 +100,24 @@ async function main() {
   // Updating existing drafts: the warning.
   await page.check('#overwrite');
   await shot('overwrite-warning', page.locator('#translate-form'));
+
+  // Translation files: the Advent offer exported as HTML for French, translated, imported.
+  await page.goto(appUrl);
+  await page.check('input[name="campaign"][value="c-advent"]');
+  await page.check('input[name="file-format"][value="html"]');
+  for (const code of ['de', 'it']) await page.uncheck(`input[name="export-language"][value="${code}"]`);
+  await shot('export-for-translation', page.locator('#export-card'));
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#export-button')]);
+  const exported = Buffer.concat(await (await download.createReadStream()).toArray()).toString('utf8');
+  // A translator's work: the stand-in's French translations of the sample texts.
+  const french = (JSON.parse(readFileSync(new URL('../standin/samples.json', import.meta.url), 'utf8')) as Record<string, Record<string, string>>).fr;
+  const translated = exported.replace(/(<div data-st-id="\d+">)([\s\S]*?)(<\/div>)/g, (all, open: string, inner: string, close: string) =>
+    french[inner] ? `${open}${french[inner]}${close}` : all,
+  );
+  await page.setInputFiles('#import-form input[name="file"]', { name: 'mailchimp-c-advent-fr-CH.html', mimeType: 'text/html', buffer: Buffer.from(translated) });
+  await page.click('#import-button');
+  await page.waitForSelector('#import-result .notice');
+  await shot('import-summary', page.locator('#import-form'));
 
   // The page in German.
   await page.goto(`${appUrl}/?lang=de`);

@@ -91,6 +91,8 @@ No content, no API key and no personal data. Being a hosted app, it has no ping 
 
 Everyone who has connected the Mailchimp account in the app, and, with the folder trigger, everyone who can move campaigns between folders in Mailchimp.
 
+**Translation files** (*Export for translation* and *Import translation* on the Translate page) need nothing to set up and no API key; the same people can use them. The export lists campaigns only with *Start translations from → The Supertext app* on. Uploads are limited to 10 MB, read in memory and never stored. See the [user guide](USER_GUIDE.md#translation-files-export-for-translation-import-translation).
+
 ## Updating
 
 Nothing to do: the app runs on Supertext's servers and is updated there. The settings page shows the current version.
@@ -103,6 +105,8 @@ Nothing to do: the app runs on Supertext's servers and is updated there. The set
 
 | Message | Cause / fix |
 | --- | --- |
+| *This file isn't a valid XLIFF or HTML translation file* / *This file wasn't exported by the Supertext app …* | The imported file is damaged, another kind of file, or the translator removed its metadata (HTML head, XLIFF file header). Export again and ask the translator to keep the structure. |
+| *The file is too large (at most 10 MB)* | Export fewer languages per file. |
 | *Your session has expired* | Connect Mailchimp again on the start page. |
 | *Mailchimp access wasn't granted* | You declined on Mailchimp's page. Click **Connect Mailchimp** again. |
 | *Mailchimp refused the connection* | The app's access was revoked in Mailchimp, or the user who connected it left the account. Connect again. |

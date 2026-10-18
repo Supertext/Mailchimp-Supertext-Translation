@@ -15,8 +15,9 @@ src/
     client.ts             OAuth code exchange + metadata; Marketing API (campaigns, content, folders), 429 retries
     email-html.ts         campaign HTML ↔ segments: text blocks, merge-tag placeholders, mc:edit sections
   translation/
-    translate.ts          one campaign × one language: segments → Supertext → draft (replicate, settings, segment, content)
-    jobs.ts               a job: one campaign × languages, progress, error handling, limiting the original
+    translate.ts          one campaign × one language: collectSegments → Supertext → writeDraft (replicate, settings, segment, content)
+    files.ts              translation files: export, import, reference format (SDK TranslationFiles)
+    jobs.ts               a job: one campaign × languages, progress, error handling; loadCampaign, currentDraft, rememberDraft, limitOriginal (shared with files.ts)
     segments.ts           the language segment of a draft and of the original
     folders.ts            the Supertext folders: create/rename/remove, poll, start jobs
     languages.ts          Mailchimp language codes, Supertext defaults, names
@@ -26,8 +27,8 @@ src/
     store.ts              Store interface, in-memory store, AES-GCM for tokens and keys
     postgres.ts           PostgreSQL store (creates its database and tables)
   i18n/                   en, de, fr, it messages; translator; LocalizedError
-  views/                  server-rendered pages (hono/jsx): connect, translate, job panel and history, settings
-public/                   app.js (selection, start, polling, test connection), app.css (Supertext's look, see Look and feel), supertext-logo.svg, favicon.svg, fonts/ (Inter, SIL Open Font License)
+  views/                  server-rendered pages (hono/jsx): connect, translate (with the export and import cards), job panel and history, import summary, settings
+public/                   app.js (selection, start, polling, export download, import upload, test connection), app.css (Supertext's look, see Look and feel), supertext-logo.svg, favicon.svg, fonts/ (Inter, SIL Open Font License)
 scripts/probe.ts          look at a real account (read-only; --write tries the writes on a throw-away copy)
 scripts/smoke.sh          the built app against the stand-ins (CI)
 scripts/vendor-sdk.sh     updates vendor/supertext-sdk
@@ -65,6 +66,15 @@ tests/                    Vitest tests; standin/ (Mailchimp and Supertext stand-
 7. **Original:** with *Send the original only to subscribers without a translated language*, a draft or paused original gets `Language is not <code>` for every language with a draft (its earlier language conditions replaced), within the same limits; otherwise the job reports that the audience was kept.
 8. **Errors:** authentication, limit, Mailchimp access and campaign problems stop the job; anything else (e.g. `INVALID_LANGUAGE_PAIR`) fails only that language. Jobs still running when the app restarts are marked *interrupted* on the next start.
 
+### Translation files (XLIFF and HTML)
+
+*Export for translation* and *Import translation* (cards on the translate page, `public/app.js`) use the SDK's `TranslationFiles` (SDK 0.5.0, version-neutral, imported from `supertext-sdk`, not `supertext-sdk/v1`). Glue: `src/translation/files.ts`; routes `POST /api/files/export` (JSON → the file) and `POST /api/files/import` (multipart → JSON with the summaries and the summary rendered by `views/files.tsx`), both with the session and the CSRF token like every POST.
+
+- **Segments:** `collectSegments` in `translate.ts`, shared with the API translation: `subject`, `preview`, `body.<n>` (the n-th segment of `EmailDocument`, or the plain-text body as `body.0`). Every segment goes into the file as HTML (`html: true`), so the merge-tag placeholders `<span data-mc="N"></span>` become protected XLIFF codes.
+- **Job metadata:** `plugin` = `Mailchimp-Supertext-Translation`; `reference` = `campaign:<campaign id>:<Mailchimp language>` (`fileReference` / `parseReference`); `sourceLanguage` = the account's campaign language as Supertext code (`und` when it is detected automatically), `targetLanguage` = the language's Supertext code (`resolvedTarget`), else the Mailchimp code with `_` → `-`, so unmapped languages never block an export. XLIFF: one job per language in one file; HTML: exactly one. File name `mailchimp-<campaign id>-<target>.xlf|.html` (`mailchimp-<campaign id>.xlf` for several), `application/x-xliff+xml` / `text/html; charset=utf-8`, `Content-Disposition: attachment`; the script saves the response as a blob (the CSRF header can't go with a plain link). The export needs the campaign list, which the page loads only with *Start translations from → The Supertext app* on.
+- **Import:** `refuseLargeUpload` checks `Content-Length` before the body is parsed and the file's size (10 MB); nothing is stored. `TranslationFiles.read` errors become `fileInvalid` / `fileMissingMetadata` / `fileTooLarge`; per job: other `plugin` → `fileOtherSystem`, unparsable reference or missing campaign → `fileItemGone`, a language not in the account's targets → `fileNoLanguage`, and `loadCampaign`'s own checks (a draft made by the app, other campaign types). An existing draft (`currentDraft`) is kept unless *Update existing drafts*. Then `importTranslations(file, fileSegments(collected))`; `ok` (and `source_changed` with *Also import texts whose source changed*) results are checked with `segmentResult` (every merge tag must come back; otherwise counted as `invalid_markup`) and written with `writeDraft`, the API path's write-back (replica or update, title, subject, preview, folder, language segment, template sections or HTML); keys without a translation keep the original's text, because a draft is always a whole email. No translation at all → no draft. Then `rememberDraft` and, once per campaign, `limitOriginal`, as after a job.
+- Tests: `tests/files.test.ts` through the routes against the stand-ins.
+
 ### The folder trigger
 
 `folders.ts`. On saving the settings (and connecting), `syncFolders()` keeps the account's folders in line: *Supertext → All languages* plus *Supertext → <language>* per target, named in the interface language of whoever saved (`folderLocale`); renamed when that changes; a folder no longer wanted is deleted if empty, else left as an ordinary folder. Folder IDs and what they start are stored with the account.
@@ -92,7 +102,7 @@ AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML fi
 
 ## Supertext SDK
 
-All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`; since 0.2.0 the API is in the `v1` namespace, imported as `supertext-sdk/v1`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It provides the API client and the API key check (`checkApiKey()`, `apiKeyFingerprint()`, `SDK_VERSION`); version reports come from Supertext Plugin Health (next section). It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json`, `LICENSE`, `COMMIT` (the SDK commit), `VERSION` and a `README.md`. The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
+All Supertext calls go through the [Supertext SDK](https://github.com/Supertext/Supertext-API-SDK-and-Guide) (`sdk/typescript`, npm name `supertext-sdk`, 0.5.0; since 0.2.0 the API is in the `v1` namespace, imported as `supertext-sdk/v1`; `TranslationFiles` comes from `supertext-sdk`), the shared client of all Supertext plugins, wrapped by `src/supertext/client.ts`. It provides the API client and the API key check (`checkApiKey()`, `apiKeyFingerprint()`, `SDK_VERSION`); version reports come from Supertext Plugin Health (next section). It isn't on npm yet, so it is a file dependency (`"supertext-sdk": "file:vendor/supertext-sdk"`): `vendor/supertext-sdk/` holds its built JavaScript and type declarations, a lean `package.json`, `LICENSE`, `COMMIT` (the SDK commit), `VERSION` and a `README.md`. The Docker image copies `vendor/` before `npm ci`. Never edit it: fix the SDK repository and copy it again:
 
 ```bash
 scripts/vendor-sdk.sh                  # latest main of the SDK repository
@@ -166,7 +176,7 @@ An API key (Mailchimp → Profile → Extras → API keys) works like an OAuth t
 ## Tests
 
 ```bash
-npm test             # Vitest: email HTML and merge tags, segments, sessions, the app's SDK layer, languages, reporting, i18n, full flow
+npm test             # Vitest: email HTML and merge tags, segments, sessions, the app's SDK layer, languages, reporting, i18n, full flow, translation files
 npm run typecheck
 npm run build
 bash scripts/smoke.sh   # after build: the built app against the stand-ins
@@ -174,7 +184,7 @@ bash scripts/smoke.sh   # after build: the built app against the stand-ins
 
 The protocol itself (multipart, retries, polling, packing, language codes, error mapping) is tested in the SDK repository against its shared test vectors.
 
-`tests/flow.test.ts` runs the whole app (`createApp`) against the stand-ins with an in-memory store: OAuth, settings and folders, translating from the app (drafts, segments, merge tags, template sections and the HTML fallback, kept and updated drafts, errors) and from folders (moved back, sent campaigns), disconnecting.
+`tests/flow.test.ts` runs the whole app (`createApp`) against the stand-ins with an in-memory store: OAuth, settings and folders, translating from the app (drafts, segments, merge tags, template sections and the HTML fallback, kept and updated drafts, errors) and from folders (moved back, sent campaigns), disconnecting. `tests/files.test.ts` covers export and import: reference round trip, keys and codes, every import outcome, lost merge tags, kept drafts, upload size.
 
 ## Screenshots
 
@@ -182,7 +192,7 @@ The protocol itself (multipart, retries, polling, packing, language codes, error
 npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 ```
 
-`tests/docs/screenshots.ts` starts the stand-ins and the app in-process, connects through the stand-in's OAuth and captures the app's pages (connect, settings, translate page, results, list afterwards, update warning, German UI). Regenerate them in the same commit as any UI change they show. Chromium: Playwright's own (`npx playwright install chromium`) or `CHROME=/path/to/chrome`. Screenshots of Mailchimp's own screens (the Supertext folders, a draft) follow from the demo account.
+`tests/docs/screenshots.ts` starts the stand-ins and the app in-process, connects through the stand-in's OAuth and captures the app's pages (connect, settings, translate page, results, list afterwards, update warning, export for translation and the import summary after an HTML round trip, German UI). Regenerate them in the same commit as any UI change they show. Chromium: Playwright's own (`npx playwright install chromium`) or `CHROME=/path/to/chrome`. Screenshots of Mailchimp's own screens (the Supertext folders, a draft) follow from the demo account.
 
 ## CI
 
@@ -253,5 +263,6 @@ Never tag or create releases by hand.
   - the language condition's format in segments (`{condition_type: "Language", field: "language", op: "is", value: "de"}`) and the limit of 5 conditions.
 - The folder check needs one listing of all campaigns per account per minute; accounts with more than 5,000 campaigns are only checked for the newest 5,000.
 - Jobs and the poller run inside the web process (one Railway instance); a restart marks a running job *interrupted*. A queue comes later.
+- Translation files export one campaign at a time and need *Start translations from → The Supertext app* on for the campaign list.
 - Not translated: A/B tests (variate content), RSS campaigns, automations / Customer Journeys, templates themselves, signup forms and landing pages.
 - No Mailchimp Marketplace listing yet: needs Mailchimp's review; until then the app's URL.
