@@ -153,6 +153,8 @@ export const fr: Messages = {
   'settings.style.more': 'Formelle (p. ex. « vous »)',
   'settings.style.less': 'Informelle (p. ex. « tu »)',
   'settings.languages.choose': "— choisir —",
+  'settings.languages.review': "Révision des traductions",
+  'settings.languages.reviewHint': "Révision des traductions : les traductions vers une langue cochée passent par le service de révision de Supertext, afin que les réviseurs puissent les vérifier et les corriger avec l’extension Supertext Localization Review. Leurs corrections sont reprises lors de la prochaine traduction de la campagne. Toutes les autres langues vont directement à Supertext.",
   'settings.languages.unmapped': "Ces langues n’ont pas encore de langue Supertext et ne sont traduites qu’une fois que vous en avez choisi une dans leur liste sous Langues : {languages}.",
   'settings.languages.sourceUnsupported': "Supertext ne connaît pas {language} comme langue de vos campagnes. Choisissez sa langue Supertext dans sa liste sous Langues (par exemple anglais (États-Unis) (en-US)) ou laissez Supertext détecter la langue.",
   'settings.keyCheck.label': "Vérification de la clé API :",

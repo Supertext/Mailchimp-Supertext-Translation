@@ -56,6 +56,8 @@ Check the recipients in each draft before sending; you can change them in Mailch
 
 Open the draft in Mailchimp (the *Open in Mailchimp* link, or the campaign list), check subject line, preview text and content, send a test email and send or schedule it. Drafts made from a template stay editable in Mailchimp's editor. If Mailchimp didn't accept the template's sections, the result says *Saved as HTML*: you then edit that draft with Mailchimp's code editor.
 
+**Translation review:** if your administrator turned on *Translation review* for a language, reviewers (your colleagues or Supertext linguists) check and correct its translations. Their corrections come into Mailchimp the next time you translate the campaign into that language: after a review, translate it again with *Update existing drafts*. Texts reviewed once keep their corrected wording in later translations.
+
 ## Translation files: export for translation, import translation
 
 Instead of Supertext AI, you can have a campaign translated by someone else: a translator, a translation tool (Trados, memoQ, Phrase and other CAT tools) or Supertext's web app. The app exports the campaign's texts as a file and imports the translated file again; the result is the same draft per language as with Supertext AI. Both are on the **Translate** page, below the translate button. (The export needs the campaign list, so *Start translations from → The Supertext app* must be on in the settings; the import works either way.)

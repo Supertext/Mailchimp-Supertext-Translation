@@ -34,6 +34,8 @@ async function main() {
   const mailchimpUrl = await listen((request) => mailchimp.handle(request));
   mailchimp.apiBase = mailchimpUrl;
   const supertextUrl = await listen((request) => supertext.handle(request));
+  // The review service speaks the same API: a second address of the same stand-in, never the live one.
+  const reviewUrl = await listen((request) => supertext.handle(request));
   const port = 8790;
   const appUrl = `http://127.0.0.1:${port}`;
   const app = createApp({
@@ -43,6 +45,7 @@ async function main() {
       MAILCHIMP_CLIENT_SECRET: 'screenshots-secret',
       MAILCHIMP_LOGIN_BASE: mailchimpUrl,
       SUPERTEXT_API_ENDPOINT: `${supertextUrl}/v1/`,
+      SUPERTEXT_REVIEW_URL: `${reviewUrl}/v1/`,
       // Version reports go to the stand-in, never to the live Commando Center.
       SUPERTEXT_REPORT_URL: `${supertextUrl}/report`,
       FOLDER_POLL_SECONDS: '0',
@@ -72,6 +75,7 @@ async function main() {
   await page.selectOption('select[name="code:de"]', 'de-CH');
   await page.selectOption('select[name="code:fr"]', 'fr-CH');
   await page.selectOption('select[name="code:it"]', 'it-CH');
+  await page.check('input[name="review"][value="de"]');
   await page.click('button.primary');
   await page.waitForSelector('.notice.success');
   await page.click('#test-button');

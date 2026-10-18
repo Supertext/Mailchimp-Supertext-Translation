@@ -15,7 +15,7 @@ import { translateCampaign } from './translate.js';
 export interface JobDeps {
   store: Store;
   mailchimp: (account: Account) => MailchimpClient;
-  supertext: (account: Account) => Pick<SupertextClient, 'translateSegments'>;
+  supertext: (account: Account) => Pick<SupertextClient, 'translateSegments' | 'forReview'>;
   /** Supertext rejected the key (HTTP 401/403) during a translation: the Commando Center hears of it once. */
   onAuthenticationFailed?: (account: Account, httpStatus: number) => void;
 }
@@ -122,7 +122,8 @@ export async function runJob(deps: JobDeps, job: Job, folderId?: string): Promis
       const target = await currentDraft(mailchimp, drafts, language);
       const result = await translateCampaign({
         mailchimp,
-        supertext,
+        // Languages with Translation review on go through Supertext's review service.
+        supertext: supertext.forReview(account.reviewLanguages.includes(language)),
         source,
         content,
         target,

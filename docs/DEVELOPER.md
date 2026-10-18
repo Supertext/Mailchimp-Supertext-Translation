@@ -22,7 +22,7 @@ src/
     folders.ts            the Supertext folders: create/rename/remove, poll, start jobs
     languages.ts          Mailchimp language codes, Supertext defaults, names
   supertext/
-    client.ts             the app's layer over the Supertext SDK: one client per account, SDK error codes → app errors
+    client.ts             the app's layer over the Supertext SDK: one client per account (forReview() for languages with Translation review), SDK error codes → app errors
   store/
     store.ts              Store interface, in-memory store, AES-GCM for tokens and keys
     postgres.ts           PostgreSQL store (creates its database and tables)
@@ -99,6 +99,8 @@ The pages follow supertext.com: the deep-green header bar (`#003230`, rounded bo
 AI file translation API v1 at `https://api.supertext.com/v1/` (upload an HTML file, poll its status, download the translation, delete the file), handled entirely by the Supertext SDK: the `Supertext-Auth-Key` header (a pasted prefix is stripped), the multipart upload with a file part of type exactly `text/html`, HTTP 429 retries (`Retry-After`, else 1/2/4/8 s with jitter), polling every 2 s with a 3-minute timeout, the delete after every upload, the HTML packing (one `<div data-st-id="N">` per segment) and the language codes. See the SDK's [integration guide](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/integration-guide.md) and [API reference](https://github.com/Supertext/Supertext-API-SDK-and-Guide/blob/main/docs/api-reference.md).
 
 `src/supertext/client.ts` creates one SDK client per account with the key and the base URL (`SUPERTEXT_API_ENDPOINT` for stand-ins), sends `Mailchimp-Supertext-Translation/<version>` in the User-Agent, and turns the SDK's error codes into the app's (`authentication_failure` → `auth`, `quota_exceeded` → `limitExceeded`, `invalid_language_pair` → `languagePair`, `unsupported_language` → `unsupportedLanguage`, `unsupported_feature` → `unsupportedFeature`, `transport_error` → `unreachable`, `incomplete_response` → `incomplete` …), which the interface shows in its four languages. *Test connection* and the automatic key check are the SDK's cost-free `checkApiKey()` (`GET features`; see *Commando Center*). The key is the account's own (Settings, AES-256-GCM encrypted with `APP_ENCRYPTION_KEY`, else a key derived from `MAILCHIMP_CLIENT_SECRET`), else `SUPERTEXT_API_KEY`. The SDK never puts the key into error details.
+
+**Translation review** (`Account.reviewLanguages`, a checkbox per language under Settings → Languages, stored with the account's other settings in its JSON, so existing accounts start with `[]`, review off): `runJob` takes `supertext.forReview(account.reviewLanguages.includes(language))` for each language, a second SDK client with the same key, timeouts, `fetch` and User-Agent whose base URL is `SUPERTEXT_REVIEW_URL` (`Config.reviewUrl`, default `REVIEW_URL` in `src/supertext/client.ts`, the translation proxy of [Supertext Localization Review](https://github.com/Supertext/Localization-Review-Supertext-Translation)), created once per account client. `translateSegments` does the whole round trip (upload, status, download, delete) on one client, so a document is always collected where it was submitted. The proxy speaks the same API v1, forwards to the live Supertext API with the account's key, stores every segment per key and serves reviewers' corrections on the next upload, so nothing else changes in the app. `SUPERTEXT_REVIEW_URL=` (empty) or the same URL as the API means `forReview()` always returns the direct client, and the settings page hides the column. The key check (*Test connection*, Commando Center), version reports and translation-file export/import never use the review service. Tests: `tests/supertext.test.ts` (all four calls at the review URL, other languages direct, off when empty or equal to the API URL, the default) and `tests/flow.test.ts` (the setting saved and shown, a job with one review and one direct language; `tests/helpers.ts` routes `review.test` to the stand-in and records every Supertext request in `supertextRequests`).
 
 ## Supertext SDK
 
@@ -184,7 +186,7 @@ bash scripts/smoke.sh   # after build: the built app against the stand-ins
 
 The protocol itself (multipart, retries, polling, packing, language codes, error mapping) is tested in the SDK repository against its shared test vectors.
 
-`tests/flow.test.ts` runs the whole app (`createApp`) against the stand-ins with an in-memory store: OAuth, settings and folders, translating from the app (drafts, segments, merge tags, template sections and the HTML fallback, kept and updated drafts, errors) and from folders (moved back, sent campaigns), disconnecting. `tests/files.test.ts` covers export and import: reference round trip, keys and codes, every import outcome, lost merge tags, kept drafts, upload size.
+`tests/flow.test.ts` runs the whole app (`createApp`) against the stand-ins with an in-memory store: OAuth, settings and folders, Translation review (review languages through `review.test`, the others direct), translating from the app (drafts, segments, merge tags, template sections and the HTML fallback, kept and updated drafts, errors) and from folders (moved back, sent campaigns), disconnecting. `tests/files.test.ts` covers export and import: reference round trip, keys and codes, every import outcome, lost merge tags, kept drafts, upload size.
 
 ## Screenshots
 
@@ -192,7 +194,7 @@ The protocol itself (multipart, retries, polling, packing, language codes, error
 npm run docs:screenshots   # Playwright, 1× scale, into docs/images/
 ```
 
-`tests/docs/screenshots.ts` starts the stand-ins and the app in-process, connects through the stand-in's OAuth and captures the app's pages (connect, settings, translate page, results, list afterwards, update warning, export for translation and the import summary after an HTML round trip, German UI). Regenerate them in the same commit as any UI change they show. Chromium: Playwright's own (`npx playwright install chromium`) or `CHROME=/path/to/chrome`. Screenshots of Mailchimp's own screens (the Supertext folders, a draft) follow from the demo account.
+`tests/docs/screenshots.ts` starts the stand-ins and the app in-process, connects through the stand-in's OAuth and captures the app's pages (connect, settings with Translation review ticked for German (the review service is a second address of the Supertext stand-in), translate page, results, list afterwards, update warning, export for translation and the import summary after an HTML round trip, German UI). Regenerate them in the same commit as any UI change they show. Chromium: Playwright's own (`npx playwright install chromium`) or `CHROME=/path/to/chrome`. Screenshots of Mailchimp's own screens (the Supertext folders, a draft) follow from the demo account.
 
 ## CI
 
@@ -219,6 +221,7 @@ The service **Mailchimp** in the Railway project *supertext-cms-demos* builds th
 | `DATABASE_URL` | the shared Postgres service's URL with database `mailchimp_supertext` (created on first start) |
 | `APP_ENCRYPTION_KEY` | random secret for stored tokens and keys; optional (falls back to the client secret) |
 | `SUPERTEXT_API_KEY` | optional default key (the demo account) |
+| `SUPERTEXT_REVIEW_URL` | optional: the review service for languages with *Translation review* on (default: Supertext's review service; empty turns review off for every account and hides the setting) |
 | `FOLDER_POLL_SECONDS` | optional, default 60 |
 | `SUPERTEXT_VERSION_REPORTS` | optional; `0` turns the version reports off for every account |
 | `SUPERTEXT_REPORT_URL` | optional; tests and stand-ins only (default: the live Commando Center) |
@@ -263,6 +266,7 @@ Never tag or create releases by hand.
   - the language condition's format in segments (`{condition_type: "Language", field: "language", op: "is", value: "de"}`) and the limit of 5 conditions.
 - The folder check needs one listing of all campaigns per account per minute; accounts with more than 5,000 campaigns are only checked for the newest 5,000.
 - Jobs and the poller run inside the web process (one Railway instance); a restart marks a running job *interrupted*. A queue comes later.
+- Translation review: reviewers' corrections reach Mailchimp only with the next translation (no push); updating a draft overwrites manual changes made in Mailchimp. The review service works only with live Supertext keys.
 - Translation files export one campaign at a time and need *Start translations from → The Supertext app* on for the campaign list.
 - Not translated: A/B tests (variate content), RSS campaigns, automations / Customer Journeys, templates themselves, signup forms and landing pages.
 - No Mailchimp Marketplace listing yet: needs Mailchimp's review; until then the app's URL.

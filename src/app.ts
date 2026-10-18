@@ -44,6 +44,7 @@ export function services(deps: AppDeps) {
     new SupertextClient({
       apiKey: account.apiKey || config.supertextApiKey,
       endpoint: config.supertextEndpoint || undefined,
+      reviewEndpoint: config.reviewUrl,
       fetch: deps.fetch,
     });
   const reporting = new Reporting({ config, store: deps.store, fetch: deps.fetch, onTask: deps.onJob });
@@ -376,6 +377,7 @@ export function createApp(deps: AppDeps) {
           serverKey: Boolean(config.supertextApiKey),
           reportsEnabled: reporting.enabled(session.account),
           reportsFixed: reporting.fixedByEnvironment,
+          reviewAvailable: Boolean(config.reviewUrl),
           saved: c.req.query('saved') === '1',
           invalidCodes: c.req.query('invalid') || undefined,
           foldersError: c.req.query('folders') || undefined,
@@ -418,6 +420,8 @@ export function createApp(deps: AppDeps) {
       else invalid.push(code);
     }
     account.languageCodes = codes;
+    const review = form.review === undefined ? [] : Array.isArray(form.review) ? form.review : [form.review];
+    account.reviewLanguages = [...new Set(review.map(String))].filter((code) => isLanguage(code));
     if (!reporting.fixedByEnvironment) account.versionReports = field('versionReports') === '1';
     account.folderTrigger = field('folderTrigger') === '1';
     account.appTrigger = field('appTrigger') === '1';

@@ -150,6 +150,8 @@ export const it: Messages = {
   'settings.style.more': 'Formale (p. es. «Lei»)',
   'settings.style.less': 'Informale (p. es. «tu»)',
   'settings.languages.choose': "— scegliere —",
+  'settings.languages.review': "Revisione delle traduzioni",
+  'settings.languages.reviewHint': "Revisione delle traduzioni: le traduzioni in una lingua con questa casella selezionata passano dal servizio di revisione di Supertext, così i revisori possono controllarle e correggerle con l’estensione Supertext Localization Review. Le loro correzioni vengono riprese alla prossima traduzione della campagna. Tutte le altre lingue vanno direttamente a Supertext.",
   'settings.languages.unmapped': "Queste lingue non hanno ancora una lingua Supertext e vengono tradotte solo dopo che ne avrà scelta una nel loro elenco in Lingue: {languages}.",
   'settings.languages.sourceUnsupported': "Supertext non conosce {language} come lingua delle Sue campagne. Scelga la sua lingua Supertext nel suo elenco in Lingue (per esempio inglese (Stati Uniti) (en-US)) oppure lasci che Supertext riconosca la lingua.",
   'settings.keyCheck.label': "Verifica della chiave API:",

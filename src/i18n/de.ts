@@ -152,6 +152,8 @@ export const de: Messages = {
   'settings.style.more': 'Formell (z. B. «Sie»)',
   'settings.style.less': 'Informell (z. B. «du»)',
   'settings.languages.choose': "— auswählen —",
+  'settings.languages.review': "Übersetzungsprüfung",
+  'settings.languages.reviewHint': "Übersetzungsprüfung: Übersetzungen in eine Sprache mit diesem Häkchen laufen über den Prüfdienst von Supertext, damit Prüferinnen und Prüfer sie mit der Erweiterung Supertext Localization Review kontrollieren und korrigieren können. Ihre Korrekturen werden beim nächsten Übersetzen der Kampagne übernommen. Alle anderen Sprachen gehen direkt an Supertext.",
   'settings.languages.unmapped': "Diese Sprachen haben noch keine Supertext-Sprache und werden erst übersetzt, wenn Sie unter Sprachen in ihrem Auswahlfeld eine wählen: {languages}.",
   'settings.languages.sourceUnsupported': "Supertext kennt {language} als Sprache Ihrer Kampagnen nicht. Wählen Sie unter Sprachen in ihrem Auswahlfeld die Supertext-Sprache (zum Beispiel Englisch (Vereinigte Staaten) (en-US)) oder lassen Sie Supertext die Sprache erkennen.",
   'settings.keyCheck.label': "Prüfung des API-Schlüssels:",

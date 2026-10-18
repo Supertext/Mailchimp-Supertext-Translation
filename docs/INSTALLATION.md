@@ -42,7 +42,7 @@ Everyone in your team who connects the same Mailchimp account shares its setting
 
 Enter the API key, choose your languages, check the Supertext language in each one's box and click **Save**. Saving checks the API key automatically (free of charge, nothing is translated) and shows the result under the key: *API key checked: the connection to Supertext works.* means everything is in place. **Test connection** runs the same check again, also for a key you have typed but not saved yet.
 
-<img src="images/settings.png" alt="Supertext settings: the saved API key with links to create a Supertext account and generate the key, the API key check result and Test connection, both saying the connection to Supertext works, the language of the campaigns (English), French, German and Italian ticked with the Supertext languages Swiss French (fr-CH), Swiss High German (de-CH) and Italian (Switzerland) (it-CH) chosen in their combo boxes, the unticked Arabic box showing — choose —, Bulgarian preselected as Bulgarian (bg) and Chinese as Simplified Chinese (zh-Hans), Start translations from: Mailchimp folders and The Supertext app, Send the original only to subscribers without a translated language, the form of address, Send version information to Supertext, the connected account and the version 0.1.0" width="720">
+<img src="images/settings.png" alt="Supertext settings: the saved API key with links to create a Supertext account and generate the key, the API key check result and Test connection, both saying the connection to Supertext works, the language of the campaigns (English), French, German and Italian ticked with the Supertext languages Swiss French (fr-CH), Swiss High German (de-CH) and Italian (Switzerland) (it-CH) chosen in their combo boxes, the unticked Arabic box showing — choose —, Bulgarian preselected as Bulgarian (bg) and Chinese as Simplified Chinese (zh-Hans), Translation review ticked for German only, the note on Translation review below the table, Start translations from: Mailchimp folders and The Supertext app, Send the original only to subscribers without a translated language, the form of address, Send version information to Supertext, the connected account and the version 0.1.0" width="720">
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
@@ -51,6 +51,7 @@ Enter the API key, choose your languages, check the Supertext language in each o
 | Language of your campaigns | English | The language you write your campaigns in. *Let Supertext detect it* works too, but then the app can't leave that language out of the targets. |
 | Translate into | none | The languages to translate into. Each one gets a draft per campaign and, with the folder trigger, its own Supertext folder. |
 | Supertext code | Supertext's suggestion | The language mapping: a combo box per Mailchimp language with Supertext's languages as "Name (code)". It starts with Supertext's suggestion: the same code where Mailchimp's is one (`es`, `nl`, `bg` …), else the obvious default (see the table below); a language with neither (Norwegian, Arabic …) shows *— choose —* and isn't translated until you pick one (*has no Supertext language yet*). Change it where you want another variant, e.g. *Swiss High German (de-CH)* instead of *German (Germany) (de-DE)*. Saving stores the chosen codes; the page warns about ticked languages that still show *— choose —*. The same mapping gives the campaign language (`en-US` is sent as the source `en`). |
+| Translation review | Off | A checkbox per language, next to its *Supertext code*: translations into a ticked language go through Supertext's review service, see [Translation review](#translation-review). The column isn't shown when Supertext has turned review off on the server. |
 | Start translations from: Mailchimp folders | On | The app creates the folders *Supertext → All languages* and one per language (*Supertext → German* …) and checks them every minute. Turning it off deletes the empty Supertext folders. |
 | Start translations from: The Supertext app | On | The *Translate* page offers the campaigns. At least one of the two stays on. |
 | Send the original only to subscribers without a translated language | On | After translating, the original's audience gets "language is not German, not French …" added, so nobody receives two versions. Off: the original keeps its audience. |
@@ -76,6 +77,20 @@ There is no environment variable for the mapping: it is set per Mailchimp accoun
 The folder names are written in the language of the app's interface at the moment you save the settings (top right: EN, DE, FR, IT).
 
 The settings page also shows the app's version, linked to its release notes.
+
+## Translation review
+
+With **Translation review**, people check the translations and correct them: your colleagues or Supertext linguists review them with the *Supertext Localization Review* Chrome extension and fix texts in a side panel. Their corrections come back into Mailchimp.
+
+Turn it on per language under **Settings → Languages**: tick **Translation review** in the language's row (next to its *Supertext code*) and click **Save**. Untick it to turn it off again; nothing else changes. All other languages keep going directly to Supertext.
+
+- Translations into that language then go through Supertext's review service instead of directly to Supertext. It answers exactly like Supertext and passes everything on with your API key, so billing, languages, the form of address and error messages stay the same.
+- The review service keeps every translation of your Supertext account. A text it has translated before gets the same translation again (without a new Supertext call), and once a reviewer has corrected it, the corrected text.
+- **Corrections arrive with the next translation:** after a review, translate the campaign into that language again (with *Update existing drafts*) to write the corrections into its draft. As always, translating again overwrites manual changes in the draft.
+- Reviewers get a review link from Supertext; nothing to set up in Mailchimp or in the app.
+- The review service works with keys of the **live** Supertext API (the only one this app uses).
+- *Export for translation* and *Import translation* don't use the review service, and the automatic API key check still goes directly to Supertext.
+- The address of the review service is a setting of the hosted app (`SUPERTEXT_REVIEW_URL`, default: Supertext's review service), set by Supertext. If Supertext turns review off there (`SUPERTEXT_REVIEW_URL=` empty), the column disappears and every language goes directly to Supertext.
 
 ## Version information
 
@@ -123,6 +138,8 @@ Nothing to do: the app runs on Supertext's servers and is updated there. The set
 | *Saved, except these codes, which aren't Supertext codes …* | Choose a language from the box's list (e.g. *Swiss High German (de-CH)*). |
 | *Supertext offers no formal or informal address for this language* | Set the form of address to *Let Supertext decide*. |
 | *Supertext doesn't translate into …* | Check the language's box under Settings → Languages → *Supertext code*. |
+| Reviewers' corrections don't show up in the draft | They arrive with the next translation: translate the campaign into that language again with *Update existing drafts*. Check that the language's *Translation review* is ticked under Settings → Languages. |
+| The *Translation review* column is missing under Settings → Languages | Supertext has turned review off on the server (`SUPERTEXT_REVIEW_URL` is empty); ask Supertext support. |
 | *Saved, but the Supertext folders could not be updated in Mailchimp* | Mailchimp refused to create or rename a folder. Save again later; the reason is shown. |
 | *Mailchimp returned no content for this campaign* | Campaigns made with Mailchimp's new email builder may not be readable through Mailchimp's API yet. Use the classic builder or code your own. |
 | *Only regular and plain-text campaigns can be translated* | A/B tests (multivariate) and RSS campaigns aren't supported. |
@@ -133,7 +150,7 @@ Nothing to do: the app runs on Supertext's servers and is updated there. The set
 
 ## Privacy and security
 
-- The texts you translate are sent to Supertext (api.supertext.com) and deleted there right after download (they expire after 24 hours anyway).
+- The texts you translate are sent to Supertext (api.supertext.com) and deleted there right after download (they expire after 24 hours anyway). For languages with [Translation review](#translation-review) on, they go through Supertext's review service, which keeps the translations (and reviewers' corrections) for your Supertext account.
 - The app stores per Mailchimp account: the account name, the OAuth token and the Supertext API key (both encrypted), the settings above, which draft belongs to which campaign and language, where each campaign was last seen (for the folder trigger), and the list of recent translations (campaign names and results). It doesn't store your campaigns' content or any subscriber data.
 - With *Send version information to Supertext* on, the reports described under *Version information* go to Supertext's support center; never content, the API key or personal data.
 - The app reads campaigns and folders and creates and edits draft campaigns. It never sends or schedules a campaign.

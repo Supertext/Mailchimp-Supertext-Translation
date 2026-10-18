@@ -155,6 +155,8 @@ export const en = {
   'settings.style.more': 'Formal (e.g. German “Sie”)',
   'settings.style.less': 'Informal (e.g. German “du”)',
   'settings.languages.choose': "— choose —",
+  'settings.languages.review': "Translation review",
+  'settings.languages.reviewHint': "Translation review: translations into a language with this box ticked go through Supertext's review service, so reviewers can check and correct them with the Supertext Localization Review extension. Their corrections are used the next time the campaign is translated. All other languages go directly to Supertext.",
   'settings.languages.unmapped': "These languages have no Supertext language yet and aren't translated until you choose one in their box under Languages: {languages}.",
   'settings.languages.sourceUnsupported': "Supertext doesn't know {language} as the language of your campaigns. Choose its Supertext language in its box under Languages (for example English (United States) (en-US)), or let Supertext detect it.",
   'settings.keyCheck.label': "API key check:",
