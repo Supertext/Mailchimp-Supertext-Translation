@@ -16,6 +16,21 @@ Translate your Mailchimp campaigns with [Supertext](https://www.supertext.com) A
 
 **Needs:** a Mailchimp account and a Supertext account with an API key. No Supertext account yet? [Create one at supertext.com](https://www.supertext.com/person/en/account/signin). Generate your API key at [supertext.com → Integrations → API](https://www.supertext.com/en/integrations/api) (requires the Admin role).
 
+## Export for translation and import (XLIFF and HTML)
+
+Besides translating with Supertext AI, you can export a campaign as a file, have it translated elsewhere and import the result.
+
+- **Where:** the export and import sections on the app's Translate page; the import becomes the language's draft.
+- **Formats:** XLIFF 1.2 for translation tools such as Trados, memoQ or Phrase (formatting travels as protected tags; several target languages in one file), or HTML (one language per file) for translators or Supertext's web app, which keeps the file's head and `data-st-id` attributes, so the translated file imports as it is.
+- **Import:** the file says what it was exported from and for which language. The translations are written with the same rules as a Supertext AI translation, and a summary shows what was imported and what was skipped: source changed since the export (import those anyway with *Also import texts whose source changed since the export*), not translated, formatting changed, not in the file.
+- **Safe:** files over 10 MB, files from another system and translations that add markup the source doesn't have are refused; uploaded files aren't stored.
+
+![Export for translation: file format (XLIFF 1.2 or HTML) and target languages](docs/images/export-for-translation.png)
+
+![The import summary: imported texts and the ones skipped and why](docs/images/import-summary.png)
+
+Details: [user guide](docs/USER_GUIDE.md#translation-files-export-for-translation-import-translation).
+
 ## Guides
 
 - [Installation guide](docs/INSTALLATION.md): for administrators — connecting Mailchimp, API key, languages, settings, troubleshooting.
