@@ -152,7 +152,7 @@ Version reports, the automatic API key check and the key status go to the Supert
 
 ## Local development
 
-Requirements: Node.js 22.12+. No Mailchimp account needed for most work: the stand-ins answer like Mailchimp (OAuth and the API calls above) and Supertext for a sample account (`tests/standin/seed.ts`: a Swiss chocolate shop with a template campaign, an HTML campaign in a folder of its own with an interest segment, and a sent campaign; `samples.json` holds human translations of their texts into German, French and Italian).
+Requirements: Node.js 22.12+ (CI runs the tests and the smoke test on Node 22, 24 and 26; the Docker image uses Node 22). No Mailchimp account needed for most work: the stand-ins answer like Mailchimp (OAuth and the API calls above) and Supertext for a sample account (`tests/standin/seed.ts`: a Swiss chocolate shop with a template campaign, an HTML campaign in a folder of its own with an interest segment, and a sent campaign; `samples.json` holds human translations of their texts into German, French and Italian).
 
 ```bash
 npm install
@@ -245,7 +245,7 @@ The demo is a Mailchimp account, not a container: Mailchimp hosts the campaigns,
 
 Dependabot (`.github/dependabot.yml`) opens weekly pull requests: minor and patch updates grouped into one, GitHub Actions in another, each major update on its own. Merge one when CI is green and it doesn't change what the app supports.
 
-Some major versions are ignored on purpose: TypeScript (7.x is the native compiler; stay on 5.x until the type-checking and build tooling here is moved to it) and `@types/node` (the types must match the oldest Node version the app supports, Node 22, not the newest). Lift an ignore rule when the app moves to the new version.
+Some major versions are ignored on purpose: TypeScript (7.x is the native compiler; stay on 6.x until the type-checking and build tooling here is moved to it) and `@types/node` (the types must match the oldest Node version the app supports, Node 22, not the newest). Lift an ignore rule when the app moves to the new version.
 
 ## Releasing
 
