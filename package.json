@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
-    "hono": "^4.13.13",
+    "hono": "^4.13.14",
     "node-html-parser": "^9.0.5",
     "pg": "^8.23.1",
     "supertext-plugin-health": "file:vendor/supertext-plugin-health",
